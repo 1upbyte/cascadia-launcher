@@ -52,7 +52,8 @@ fun AppRow(
     ) {
         if (icon != null) Image(icon!!, contentDescription = null, Modifier.size(36.dp))
         else Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape))
-        Spacer(Modifier.width(16.dp))
-        Text(app.label, fontSize = 23.sp, lineHeight = 29.sp, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(20.dp))
+        Text(app.label, fontFamily = LauncherFont, fontSize = 22.sp, lineHeight = 28.sp,
+            letterSpacing = 0.sp, modifier = Modifier.weight(1f))
     }
 }

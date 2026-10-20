@@ -1,6 +1,6 @@
 package app.cascadia.launcher.ui
 
-import android.os.SystemClock
+import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -14,9 +14,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.heading
@@ -55,10 +54,9 @@ fun LauncherScreen(
     var settings by rememberSaveable { mutableStateOf(false) }
     var reorder by rememberSaveable { mutableStateOf(false) }
     var appOptions by remember { mutableStateOf<AppEntry?>(null) }
-    var lastHaptic by remember { mutableLongStateOf(0L) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
 
     fun message(text: String) { Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
     fun openApps(letter: String, feedback: Boolean) {
@@ -70,9 +68,10 @@ fun LauncherScreen(
         if (selectedLetter != letter || !feedback) {
             requestedLetter = letter
             navigationRequest++
-            if (feedback && SystemClock.uptimeMillis() - lastHaptic > 40) {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                lastHaptic = SystemClock.uptimeMillis()
+            if (feedback) {
+                // One light platform tick per new letter, respecting system haptic
+                // settings. No VIBRATE permission or repeating waveform required.
+                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
             }
         }
         selectedLetter = if (feedback) letter else null
@@ -129,9 +128,7 @@ fun LauncherScreen(
 
     Box(
         Modifier.fillMaxSize().background(Color.Black.copy(alpha = preferences.scrim))
-            .windowInsetsPadding(WindowInsets.safeDrawing.union(
-                WindowInsets.systemGestures.only(WindowInsetsSides.End),
-            )),
+            .safeDrawingPadding(),
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val viewportHeight = maxHeight
@@ -205,19 +202,8 @@ fun LauncherScreen(
             onSelect = { openApps(it, feedback = true) },
             onRelease = { selectedLetter = null },
             onAccessibleOpen = { openApps(index.sections.firstOrNull()?.letter ?: "A", feedback = false) },
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp, top = 16.dp, bottom = 16.dp),
+            modifier = Modifier.align(Alignment.CenterEnd).padding(vertical = 16.dp),
         )
-        selectedLetter?.let { letter ->
-            Surface(
-                color = MaterialTheme.colorScheme.primary,
-                shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 76.dp).size(88.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(letter, fontSize = 44.sp, color = MaterialTheme.colorScheme.onPrimary)
-                }
-            }
-        }
     }
 
     appOptions?.let { app ->

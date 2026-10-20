@@ -49,18 +49,18 @@ Core requirements:
 
 - A transparent home window shows the system wallpaper.
 - Clock/date and pinned apps form a single vertical scrolling surface.
-- A compact alphabet rail remains at the right edge, outside mandatory system gesture insets.
+- A compact alphabet rail remains at the right edge within safe drawing insets. Its gesture-exclusion region requests priority over system Back only on the rail (subject to Android's exclusion limits).
 - The all-apps list is absent from the visible layout until the rail is activated.
 - Tapping an app launches it; failures produce a non-disruptive message.
 
 ### App-browsing state
 
 - Touch or drag along the alphabet rail reveals an alphabetically grouped app list below the pinned section and jumps to the selected letter.
-- Show the selected letter prominently while dragging; provide optional, throttled haptic feedback when it changes.
+- While dragging, bend the visible letters left into a broad Gaussian bell curve centered continuously on the finger's vertical position. Adjacent letters taper back toward the right edge; dragging left deepens and broadens the curve. Keep glyph size and vertical positions stable; animate press/release over 150 ms. Do not show a separate big-letter popup. Provide a system CLOCK_TICK haptic when the letter changes, respecting Android settings.
 - Releasing the rail leaves the list open. Tapping a row launches that app.
 - Back hides the list and restores the prior home scroll position. Empty background accepts scrolling gestures and never dismisses the list.
 - A new Home intent resets to the pinned-only state and scrolls to the top. Returning with Back from a launched app preserves the browsing state, so the user can continue choosing apps.
-- Letters without apps are visually muted; moving through them selects a documented nearest nonempty section.
+- Hide letters without apps. Show only occupied sections in a compact rail centered vertically on the right, with 19 sp slots (shrinking to fit on short displays). Letters use bundled OFL-licensed Nunito Sans regular at 16 sp, centered 14 dp from the right edge, with a subtle shadow instead of a pill backdrop. The invisible touch area extends 68 dp leftward to meet the app rows. Drag hit-testing uses exactly the visible letter slots. Nunito Sans also supplies the launcher typography. See `docs/typography-and-rail.md` for licensing/provenance and intentional differences from the reference.
 - Treat rail dragging as one continuous gesture; do not launch an app on release from that gesture.
 
 Clock and pins scroll offscreen when navigating the alphabetical list. Background drags must scroll the list even when the gesture starts between rows or beside labels.
@@ -212,6 +212,14 @@ Already observed locally:
 - Release manifest/dependency privacy audit and CI for unit tests, lint, privacy checks, and debug/release builds.
 - Macrobenchmark module for cold/warm activity startup and rail frame timing, plus a separate unminified profile-generation variant. An app-specific baseline profile was generated successfully on AOSP API 36 and is included at `app/src/main/baseline-prof.txt` (startup and alphabet navigation paths, including application-specific rules). See `docs/performance.md`.
 - `README.md`, `PRIVACY.md`, and project `AGENTS.md` document operation, safety constraints, and future-session context.
+
+### Reference-driven visual refinement
+
+- Bundled unmodified OFL-licensed Nunito Sans 3.101 with its matching copyright/license inside the APK; no proprietary code or artwork included.
+- Tuned rail text/spacing, 150 ms transition, broader continuous finger-centered bend, and system clock-tick haptics; preserved hidden unused letters, wide hitbox, and no-popup preference.
+- Applied Nunito Sans throughout typography and tuned app-label spacing. See `docs/typography-and-rail.md`; visual/haptic parity still needs hands-on comparison.
+- Refinement validation: 18 unit tests and all 12 connected UI tests passed on the dedicated AOSP API 36 emulator, including all three rail tests. Debug lint, release privacy audit, Android-test compilation, and unsigned release build passed. Verified the bundled font and matching OFL notice inside the release APK.
+- Updated debug build deployed to the connected Pixel 8 with `scripts/dev.sh`, preserving favorites/settings. No instrumentation ran on the phone. The dedicated emulator was shut down after validation.
 
 ### Validation achieved
 

@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun CascadiaTheme(content: @Composable () -> Unit) {
     MaterialTheme(
+        typography = LauncherTypography,
         colorScheme = darkColorScheme(
             primary = Color(0xFFD0E7D7),
             onPrimary = Color(0xFF13231D),

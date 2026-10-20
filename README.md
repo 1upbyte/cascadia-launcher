@@ -1,7 +1,9 @@
 # Cascadia Launcher
 
 An offline, one-page Android home screen built with Kotlin and Jetpack Compose.
-Inspired by alphabet-driven launchers; original code and artwork.
+Inspired by alphabet-driven launchers; original code and artwork, with bundled
+OFL-licensed Nunito Sans typography. Font license/provenance and rail tuning:
+[docs/typography-and-rail.md](docs/typography-and-rail.md).
 
 **Status:** first MVP, not yet a public-production release. See [plan.md](plan.md) for
 the agreed behavior, architecture, and remaining release work.
@@ -86,6 +88,30 @@ than crashing.
 To switch back: **Android Settings → Apps → Default apps → Home app**. Keep your
 existing launcher installed while testing. If Cascadia cannot open, use Android
 Settings (from the notification shade) to change the Home app or uninstall it.
+
+## CLI development loop
+
+With one authorized USB/wireless ADB device connected:
+
+```sh
+./scripts/dev.sh
+```
+
+This incrementally builds debug, reinstalls with `-r` (preserving favorites and
+settings), and opens Cascadia. Re-run after edits; this is a restart, not hot reload.
+It does not change your default Home selection or run instrumentation tests.
+
+For multiple devices, select one explicitly:
+
+```sh
+./scripts/dev.sh DEVICE_SERIAL
+# Or: ANDROID_SERIAL=DEVICE_SERIAL ./scripts/dev.sh
+```
+
+The command prints a process-specific Logcat command after deployment. Re-run that
+Logcat command after each reinstall because the process ID changes. Installation
+stops on a signing-key mismatch; the script never uninstalls or clears your data.
+Keep the stock launcher installed as a fallback during development.
 
 ## Tests
 
