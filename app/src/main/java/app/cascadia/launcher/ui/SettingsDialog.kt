@@ -1,6 +1,11 @@
 package app.cascadia.launcher.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import app.cascadia.launcher.core.IconShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -13,6 +18,8 @@ import androidx.compose.ui.window.DialogProperties
 @Composable
 fun SettingsDialog(
     scrim: Float,
+    iconShape: IconShape,
+    onIconShape: (IconShape) -> Unit,
     isDefaultHome: Boolean,
     onChooseHome: () -> Unit,
     onWallpaper: () -> Unit,
@@ -32,6 +39,20 @@ fun SettingsDialog(
                 }
                 TextButton(onClick = onReorder) { Text("Reorder favorites") }
                 TextButton(onClick = onWallpaper) { Text("Change system wallpaper") }
+                Spacer(Modifier.height(16.dp))
+                Text("Icon shape", style = MaterialTheme.typography.titleMedium)
+                Column(Modifier.selectableGroup()) {
+                    IconShape.entries.forEach { shape ->
+                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .selectable(selected = iconShape == shape, role = Role.RadioButton,
+                                onClick = { onIconShape(shape) }),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = iconShape == shape, onClick = null)
+                            Spacer(Modifier.width(12.dp))
+                            Text(shape.label)
+                        }
+                    }
+                }
                 Spacer(Modifier.height(16.dp))
                 Text("Wallpaper dimming")
                 Slider(value = localScrim, onValueChange = { localScrim = it },

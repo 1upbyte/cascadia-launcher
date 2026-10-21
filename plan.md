@@ -48,19 +48,20 @@ Core requirements:
 ### Home state
 
 - A transparent home window shows the system wallpaper.
-- Clock/date and pinned apps form a single vertical scrolling surface.
+- Clock/date and pinned apps form a single vertical scrolling surface. Use a shared 28 dp left inset, 48 sp clock, 16 sp weekday/date, 48 dp app icons, 20 sp single-line labels, 20 dp icon-to-label gap, and at least 64 dp rows. Position the group responsively with an upper bias, moving it upward as favorites grow; overflow remains scrollable. Omit the brand banner, Favorites heading, and recurring browsing hint; access Settings through the Cascadia Settings shortcut in the app-list footer.
+- The all-apps list ends with app-style Cascadia Settings and GitHub shortcuts; GitHub opens `https://github.com/1upbyte/cascadia-launcher` through an installed browser/app. Footer shortcuts scroll with the list.
 - A compact alphabet rail remains at the right edge within safe drawing insets. Its gesture-exclusion region requests priority over system Back only on the rail (subject to Android's exclusion limits).
 - The all-apps list is absent from the visible layout until the rail is activated.
 - Tapping an app launches it; failures produce a non-disruptive message.
 
 ### App-browsing state
 
-- Touch or drag along the alphabet rail reveals an alphabetically grouped app list below the pinned section and jumps to the selected letter.
-- While dragging, bend the visible letters left into a broad Gaussian bell curve centered continuously on the finger's vertical position. Adjacent letters taper back toward the right edge; dragging left deepens and broadens the curve. Keep glyph size and vertical positions stable; animate press/release over 150 ms. Do not show a separate big-letter popup. Provide a system CLOCK_TICK haptic when the letter changes, respecting Android settings.
+- Touch or drag along the alphabet rail reveals the selected letter's section below the pinned area; while holding, other letters' app sections are absent. Anchor every held category at the same height as the first rail letter. Near the end, clamp to the natural list bottom rather than adding blank space below the final apps. Clock/pins stay offscreen; oversized sections remain scrollable after release. Releasing restores the full alphabetical list with the heading and app rows at exactly their held positions, ready for free scrolling. The rail's letters remain available for continuous scrubbing.
+- While dragging, bend the visible letters left into a broad Gaussian bell curve centered continuously on the finger's vertical position. Adjacent letters taper back toward the right edge; dragging left deepens and broadens the curve. Keep glyph size and vertical positions stable; animate press/release over 150 ms. Show the selected letter in a large circular preview beside the finger during rail gestures; hide it on release. Allow pulling the rail farther left while keeping the preview on screen. Provide a system CLOCK_TICK haptic when the letter changes, respecting Android settings.
 - Releasing the rail leaves the list open. Tapping a row launches that app.
 - Back hides the list and restores the prior home scroll position. Empty background accepts scrolling gestures and never dismisses the list.
 - A new Home intent resets to the pinned-only state and scrolls to the top. Returning with Back from a launched app preserves the browsing state, so the user can continue choosing apps.
-- Hide letters without apps. Show only occupied sections in a compact rail centered vertically on the right, with 19 sp slots (shrinking to fit on short displays). Letters use bundled OFL-licensed Nunito Sans regular at 16 sp, centered 14 dp from the right edge, with a subtle shadow instead of a pill backdrop. The invisible touch area extends 68 dp leftward to meet the app rows. Drag hit-testing uses exactly the visible letter slots. Nunito Sans also supplies the launcher typography. See `docs/typography-and-rail.md` for licensing/provenance and intentional differences from the reference.
+- Hide letters without apps. Show only occupied sections in a compact rail anchored at the lower right with a 192 dp margin above the safe-area bottom and 19 sp slots (shrinking to fit on short displays). Letters use bundled OFL-licensed Nunito Sans regular at 16 sp, centered 14 dp from the right edge, with a subtle shadow instead of a pill backdrop. The invisible touch area extends 68 dp leftward to meet the app rows. Drag hit-testing uses exactly the visible letter slots. Nunito Sans also supplies the launcher typography. See `docs/typography-and-rail.md` for licensing/provenance and intentional differences from the reference.
 - Treat rail dragging as one continuous gesture; do not launch an app on release from that gesture.
 
 Clock and pins scroll offscreen when navigating the alphabetical list. Background drags must scroll the list even when the gesture starts between rows or beside labels.
@@ -216,10 +217,33 @@ Already observed locally:
 ### Reference-driven visual refinement
 
 - Bundled unmodified OFL-licensed Nunito Sans 3.101 with its matching copyright/license inside the APK; no proprietary code or artwork included.
-- Tuned rail text/spacing, 150 ms transition, broader continuous finger-centered bend, and system clock-tick haptics; preserved hidden unused letters, wide hitbox, and no-popup preference.
+- Tuned rail text/spacing, 150 ms transition, broader continuous finger-centered bend, and system clock-tick haptics; preserved hidden unused letters, wide hitbox, and the then-current no-popup preference (superseded below).
 - Applied Nunito Sans throughout typography and tuned app-label spacing. See `docs/typography-and-rail.md`; visual/haptic parity still needs hands-on comparison.
 - Refinement validation: 18 unit tests and all 12 connected UI tests passed on the dedicated AOSP API 36 emulator, including all three rail tests. Debug lint, release privacy audit, Android-test compilation, and unsigned release build passed. Verified the bundled font and matching OFL notice inside the release APK.
 - Updated debug build deployed to the connected Pixel 8 with `scripts/dev.sh`, preserving favorites/settings. No instrumentation ran on the phone. The dedicated emulator was shut down after validation.
+
+### Overall layout refinement
+
+- Shared geometry aligns the clock, favorites, and all-apps icons at 28 dp; app labels start at 96 dp. Increased icons to 48 dp, reduced labels to 20 sp, and kept 64 dp minimum rows. Long labels ellipsize while launch semantics retain their full names.
+- Reduced clock to 48 sp and date to 16 sp with a compact locale-aware weekday/date. Responsive upper-biased home placement adapts to favorite count and viewport; short screens still scroll.
+- Removed the brand banner, Favorites heading, and recurring browsing hint. Settings is available in the app-list footer, with empty-state help and default-home onboarding retained when needed. Browsing section headings are smaller and aligned to the icon column.
+- Reference resource dimensions inform the layout; exact customized Niagara placement was not visually verified because the connected phone was locked during reference capture. No lock-screen bypass attempted. These are independent approximations, not recovered proprietary layouts.
+- Validation: 23 unit tests, 13 connected UI tests on the dedicated AOSP emulator (including clock/label alignment and Settings reachability), debug lint, Android-test compilation, and privacy audit passed. Updated debug installed on Pixel 8 without clearing data; no phone instrumentation.
+
+### Held-letter isolation and smoothness pass
+
+- Only the held letter's app section is materialized during rail gestures; release restores all sections at the same letter. Accessible browse entry still opens the full list. Back/Home and recreation continue to preserve their existing behavior.
+- Replaced coroutine-delayed scrolling with `requestScrollToItem` in the input callback, co-timed with section remeasurement. Rail callbacks occur only on slot changes; continuous finger movement stays draw-layer-only. Cached icons are supplied immediately and bypass dispatcher hops on cache hits.
+- The activity requests the highest refresh rate supported at the current native resolution, leaving Android in charge of power/thermal/user constraints. The Pixel window reports a 120 Hz preference; this is not evidence of achieved frame rate.
+- `scripts/dev.sh` now defaults to the optimized, development-signed benchmark variant to avoid evaluating debug Compose overhead. `CASCADIA_BUILD_TYPE=debug` explicitly selects debugger/tooling builds. No app-data clearing or default-Home changes.
+- Existing cumulative Pixel debug counters showed 128/725 janky frames (17.66%), UI 90th-percentile 40 ms vs GPU 90th-percentile 3 ms. Uncontrolled history, not an isolated rail benchmark; no valid before/after speed claim. Phone was screen-off/locked during this pass, so hands-on optimized-build frame timing remains pending.
+- Validation: 29 unit tests and all 14 connected UI tests passed on dedicated AOSP API 36, including held-section isolation/release positioning, recreation, and Back/Home. Lint, privacy checks, Android-test compilation, optimized build, shell syntax and diff checks passed. Optimized build deployed to Pixel with settings preserved; no phone instrumentation.
+
+### Held-section vertical positioning
+
+- Held results now follow the selected letter's normal vertical rail slot; lower letters appear lower when space allows. Larger sections shift upward to keep their rows visible; oversized sections start at the top. Heading spacing lives inside the selected section item so the clock/pins cannot peek into the blank area above it.
+- Full-list positioning after release remains unchanged. No per-frame list work was added; placement changes only when selecting a different letter or changing layout constraints.
+- Validation: 33 unit tests, all 14 connected UI tests on dedicated AOSP API 36 (including held-position/hidden-clock assertions), lint, test compilation, privacy audit, and optimized build passed. Initial full UI attempt timed out; the targeted case and complete rerun passed. Optimized APK installed successfully on Pixel 8 before it was disconnected; settings preserved.
 
 ### Validation achieved
 
@@ -243,3 +267,81 @@ Already observed locally:
 - UI is currently English-only; localize user-facing strings before a broad multilingual release.
 
 No production signing key has been created, no public release has been uploaded, and no changes have been committed automatically.
+
+### Rail-release position correction
+
+- Retain the selected section’s vertical spacing when restoring the full list on release, preserving heading/app positions instead of jumping them to the top. Preserve this anchor across recreation.
+- Added UI regression assertions comparing heading and first-app positions before and after release.
+- Validation: unit tests, lint, release privacy audit, debug/release builds, Android-test compilation, and optimized benchmark build passed. Optimized APK installed on the connected Pixel 8 with app data preserved. No emulator or phone instrumentation tests ran; on-screen release-position verification remains pending because the phone screen was asleep.
+
+### Automatic phone development loop
+
+- Added `scripts/dev-watch.py`: dependency-free source/config watcher invoking the existing optimized build/install/restart flow, with debounce, fixed device selection, one watcher per checkout, and app data preserved. Documented start/stop and failure retry behavior in README.
+- Verified on Pixel 8: initial automatic deployment and a subsequent source timestamp change both built, installed successfully, and cold-started the activity. Watcher left running for subsequent edits. Shell syntax, watcher help, and diff checks passed.
+
+### Fixed category start height
+
+- All rail categories now use the first-letter start height, independent of the chosen letter and category size. Final categories clamp to the natural bottom. Removed artificial trailing scroll space; held and released layouts reserve identical remaining content height. Supersedes the earlier per-letter vertical positioning.
+- Validation: unit tests, debug lint, release privacy audit, debug/release builds and Android-test compilation passed. On-device visual verification is pending while Pixel 8 is asleep; no instrumentation ran on the phone.
+- Watcher successfully installed the corrected optimized build on Pixel 8 and cold-started Cascadia, preserving app data.
+
+### Launcher footer shortcuts
+
+- Added app-style Cascadia Settings and GitHub rows after the alphabetical apps. Settings opens the existing local settings dialog; GitHub delegates the repository URL to an installed app, with a fallback message if none is available. No network permission added. Footer height participates in held/released positioning to avoid a release jump.
+- Validation: unit tests, lint, release privacy verification, debug/release builds and Android-test compilation passed. Added a footer/settings navigation UI regression test; instrumentation was not run on the daily-use phone.
+- Watcher built and installed the optimized footer update on Pixel 8 and opened the launcher successfully, preserving favorites/settings.
+
+### Footer icon refinement
+
+- Footer shortcuts use rounded-square (squircle) backgrounds and bundled vector icons. GitHub uses the official [Octicons mark](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg), with its MIT license bundled in APK assets; Settings uses an original gear vector. No runtime asset downloads.
+- Validation: unit tests, debug lint, release privacy verification, and debug/release builds passed.
+- Watcher installed the optimized icon update and cold-started Cascadia on Pixel 8 successfully.
+
+### Configurable icon shape
+
+- Added persisted Square, Squircle, and Circle choices in Settings, defaulting to Squircle for new and existing installs. Applies to favorites, alphabetical apps, placeholders and footer shortcuts. Adaptive icon layers are rendered before the launcher applies its chosen mask; legacy transparent icons receive a white backing. Shapes update without re-querying packages or decoding icons again.
+- Validation: unit tests, lint, privacy audit, debug/release builds, and Android-test compilation passed. Added regression coverage for adaptive icon corner pixels and shape selection/persistence across recreation; connected tests were not run on the daily-use phone.
+- Watcher installed the optimized shape-setting build on Pixel 8 and cold-started the launcher successfully; favorites/settings preserved.
+
+### Reference squircle geometry
+
+- Inspected the locally available Niagara APK reference and replaced the rounded-square approximation with a symmetric four-cubic squircle matching its mask geometry. Shared outline applies to app icons and footer backgrounds without changing saved shape preferences.
+- Validation: unit tests, lint, privacy audit, and debug/release builds passed; diff checks clean.
+- Watcher installed the optimized reference-mask update on Pixel 8 and opened Cascadia successfully, preserving app data.
+
+### Lower rail and cleaner favorites page
+
+- Moved the rail center 24 dp lower using asymmetric safe-area padding; its touch bounds move with the letters and shrink to fit short displays. Removed the Settings action and its empty spacing from the favorites page; settings stays accessible through the app-list footer. Updated UI navigation checks accordingly.
+- Validation: unit tests, lint, privacy audit, debug/release builds, Android-test compilation, and diff checks passed. Updated tests enter settings through the footer; connected tests were not run on the daily-use phone.
+- Watcher installed the optimized update and cold-started Cascadia on Pixel 8, preserving app data.
+
+### Bottom-biased alphabet rail
+
+- Anchored the rail to the lower-right safe area with a 96 dp bottom margin, replacing the small downward offset. The full rail remains available and shrinks within the viewport on short screens; hit bounds follow the glyphs.
+- Validation: unit tests, lint, privacy audit, debug/release builds, and diff checks passed.
+- Watcher installed the optimized bottom-rail update and cold-started Cascadia on Pixel 8, preserving app data.
+
+### Rail bottom margin adjustment
+
+- Doubled the alphabet rail bottom margin from 48 dp to 96 dp, as requested.
+- Validation: unit tests, lint, privacy audit, debug/release builds, and diff checks passed.
+- Watcher installed the optimized 96 dp margin update on Pixel 8 and cold-started Cascadia successfully, preserving app data.
+
+### Rail bottom margin doubled again
+
+- Increased the alphabet rail bottom margin from 96 dp to 192 dp at the user’s request.
+- Validation: unit tests, lint, privacy audit, debug/release builds, and diff checks passed.
+- Watcher installed the optimized 192 dp margin update on Pixel 8 and cold-started Cascadia successfully, preserving app data.
+
+### Finger-following selected-letter preview
+
+- Added a 64 dp circular preview with a 36 sp selected letter beside the active finger. Preview follows movement, stays within the left edge, and disappears on release. Extended leftward rail pull from a 140 dp cap to up to 280 dp, limited by screen space for the preview. Gesture selection, haptics, and post-release list position remain unchanged. This supersedes the earlier no-popup preference.
+- Validation: unit tests, lint, privacy audit, debug/release builds, Android-test compilation, and diff checks passed. Added a preview-follow/release UI regression case; connected tests were not run. Pixel 8 disconnected from ADB during deployment, so installation is pending reconnection.
+- Optimized development-signed benchmark APK also built successfully and is ready for installation once the phone reconnects.
+- Pixel 8 reconnected; watcher installed the optimized circular-preview/extended-pull update and cold-started Cascadia successfully, preserving app data.
+
+### Smaller letter preview
+
+- Reduced the circular preview from 64 dp to 48 dp and its letter from 36 sp to 28 sp, retaining finger-following placement and rail pull behavior.
+- Validation: unit tests, lint, privacy audit, debug/release builds, and diff checks passed.
+- Watcher installed the optimized smaller-preview update and opened Cascadia on Pixel 8 successfully, preserving app data.

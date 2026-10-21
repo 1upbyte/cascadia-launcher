@@ -11,12 +11,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import app.cascadia.launcher.core.IconShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -25,6 +28,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import app.cascadia.launcher.core.AppEntry
 import app.cascadia.launcher.data.AppRepository
 
@@ -33,27 +37,35 @@ fun AppRow(
     app: AppEntry,
     repository: AppRepository,
     revision: Int,
+    iconShape: IconShape,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val pixels = with(LocalDensity.current) { 36.dp.roundToPx() }
-    val icon by produceState<ImageBitmap?>(null, app.id, revision, pixels) {
+    val pixels = with(LocalDensity.current) { LauncherLayout.IconSize.roundToPx() }
+    val cached = remember(app.id, revision, pixels) {
+        repository.cachedIcon(app.id, pixels, revision)?.asImageBitmap()
+    }
+    val icon by produceState<ImageBitmap?>(cached, app.id, revision, pixels) {
         value = repository.icon(app.id, pixels, revision)?.asImageBitmap()
     }
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp)
+        Modifier.fillMaxWidth().heightIn(min = LauncherLayout.RowMinHeight)
             .combinedClickable(
                 role = Role.Button,
                 onClickLabel = "Open ${app.label}",
                 onLongClickLabel = "Options for ${app.label}",
                 onClick = onClick, onLongClick = onLongClick,
-            ).padding(vertical = 10.dp, horizontal = 8.dp),
+            ).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) Image(icon!!, contentDescription = null, Modifier.size(36.dp))
-        else Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape))
-        Spacer(Modifier.width(20.dp))
-        Text(app.label, fontFamily = LauncherFont, fontSize = 22.sp, lineHeight = 28.sp,
+        Box(Modifier.size(LauncherLayout.IconSize).clip(iconShape.composeShape())
+            .background(if (icon != null) Color.White else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))) {
+            if (icon != null) Image(icon!!, contentDescription = null, Modifier.matchParentSize())
+        }
+        Spacer(Modifier.width(LauncherLayout.IconLabelGap))
+        Text(app.label, fontFamily = LauncherFont,
+            fontSize = LauncherLayout.LabelSize, lineHeight = LauncherLayout.LabelLineHeight,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
             letterSpacing = 0.sp, modifier = Modifier.weight(1f))
     }
 }

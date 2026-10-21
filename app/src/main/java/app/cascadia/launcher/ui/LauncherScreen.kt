@@ -1,5 +1,8 @@
 package app.cascadia.launcher.ui
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -14,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -24,9 +28,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import app.cascadia.launcher.R
 import app.cascadia.launcher.LauncherViewModel
 import app.cascadia.launcher.core.AppEntry
 import app.cascadia.launcher.core.visiblePins
+import app.cascadia.launcher.core.homeTopSpacing
+import app.cascadia.launcher.core.browseSections
+import app.cascadia.launcher.core.sectionRow
+import app.cascadia.launcher.core.browseSectionTop
 import kotlinx.coroutines.launch
 
 @Composable
@@ -47,16 +56,15 @@ fun LauncherScreen(
     var browsing by rememberSaveable { mutableStateOf(false) }
     var homeIndex by rememberSaveable { mutableIntStateOf(0) }
     var homeOffset by rememberSaveable { mutableIntStateOf(0) }
-    var requestedLetter by rememberSaveable { mutableStateOf<String?>(null) }
-    var navigationRequest by remember { mutableIntStateOf(0) }
-    var handledNavigation by remember { mutableIntStateOf(0) }
     var selectedLetter by remember { mutableStateOf<String?>(null) }
+    var anchoredLetter by rememberSaveable { mutableStateOf<String?>(null) }
     var settings by rememberSaveable { mutableStateOf(false) }
     var reorder by rememberSaveable { mutableStateOf(false) }
     var appOptions by remember { mutableStateOf<AppEntry?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
+    val sections = remember(index, selectedLetter) { index.browseSections(selectedLetter) }
 
     fun message(text: String) { Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
     fun openApps(letter: String, feedback: Boolean) {
@@ -66,32 +74,28 @@ fun LauncherScreen(
             browsing = true
         }
         if (selectedLetter != letter || !feedback) {
-            requestedLetter = letter
-            navigationRequest++
+            // Apply the jump in the same remeasure as the section change,
+            // not a coroutine/recomposition later. Only runs on letter changes.
+            index.sectionRow(letter, pins.size, holding = feedback)?.let {
+                list.requestScrollToItem(it)
+            }
             if (feedback) {
                 // One light platform tick per new letter, respecting system haptic
                 // settings. No VIBRATE permission or repeating waveform required.
                 view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
             }
         }
+        anchoredLetter = if (feedback) letter else null
         selectedLetter = if (feedback) letter else null
     }
 
-    LaunchedEffect(navigationRequest, index, pins.size) {
-        val request = navigationRequest
-        // Consume each explicit rail request only once. Inventory changes and
-        // activity recreation must not jump a freely scrolled list back to a letter.
-        if (request > handledNavigation && browsing && requestedLetter != null) {
-            val target = index.nearestSection(requestedLetter!!)
-            if (target != null) {
-                var row = pins.size + 2 // home header + pins + home help
-                for (section in index.sections) {
-                    if (section.letter == target.letter) break
-                    row += 1 + section.apps.size
-                }
-                list.scrollToItem(row)
-                handledNavigation = request
-            }
+    fun releaseLetter() {
+        val letter = selectedLetter ?: return
+        selectedLetter = null
+        // Keep the section's spacer and scroll offset while restoring the full
+        // list, so neither its heading nor its apps move on release.
+        if (browsing) index.sectionRow(letter, pins.size, holding = false)?.let {
+            list.requestScrollToItem(it, list.firstVisibleItemScrollOffset)
         }
     }
 
@@ -99,7 +103,6 @@ fun LauncherScreen(
         if (homeRequest > 0) {
             browsing = false
             selectedLetter = null
-            requestedLetter = null
             settings = false
             reorder = false
             appOptions = null
@@ -118,7 +121,6 @@ fun LauncherScreen(
             reorder -> reorder = false
             browsing -> {
                 browsing = false
-                requestedLetter = null
                 selectedLetter = null
                 scope.launch { list.scrollToItem(homeIndex.coerceAtMost(pins.size + 1), homeOffset) }
             }
@@ -132,56 +134,78 @@ fun LauncherScreen(
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val viewportHeight = maxHeight
-            val lastSectionRows = index.sections.lastOrNull()?.apps?.size ?: 0
-            val tailHeight = (viewportHeight - 112.dp - 64.dp * lastSectionRows).coerceAtLeast(0.dp)
+            val density = LocalDensity.current
+            val rowHeight = maxOf(LauncherLayout.RowMinHeight,
+                with(density) { LauncherLayout.LabelLineHeight.toDp() } + 16.dp)
+            val clockHeight = with(density) {
+                LauncherLayout.ClockLineHeight.toDp() + LauncherLayout.DateLineHeight.toDp()
+            }
+            val homeGroupHeight = clockHeight + LauncherLayout.ClockFavoritesGap + rowHeight * pins.size + 48.dp
+            val homeTop = homeTopSpacing(viewportHeight.value, homeGroupHeight.value).dp
+            val headingHeight = with(density) { LauncherLayout.LabelLineHeight.toDp() } + 24.dp
+            val anchorSlot = index.sections.indexOfFirst { it.letter == anchoredLetter }
+            val remainingSections = if (anchorSlot >= 0) index.sections.drop(anchorSlot) else emptyList()
+            val footerHeight = rowHeight * 2 + 16.dp
+            val remainingHeight = remainingSections.fold(footerHeight) { height, section ->
+                height + headingHeight + rowHeight * section.apps.size
+            }
+            val heldTop = if (anchorSlot >= 0) browseSectionTop(
+                viewportHeight.value, index.sections.size,
+                with(density) { 19.sp.toDp().value }, remainingHeight.value,
+            ).dp else 0.dp
+            // While holding, reserve exactly the space occupied by later sections.
+            // Release swaps this blank area for real rows without changing scroll bounds.
+            val tailHeight = if (selectedLetter != null) {
+                (remainingHeight - headingHeight - rowHeight * (remainingSections.firstOrNull()?.apps?.size ?: 0))
+                    .coerceAtLeast(0.dp)
+            } else 0.dp
             LazyColumn(
                 state = list,
-                modifier = Modifier.fillMaxSize().padding(end = 60.dp).testTag("app-list")
+                modifier = Modifier.fillMaxSize().padding(end = LauncherLayout.RailTouchWidth).testTag("app-list")
                     .semantics { stateDescription = if (browsing) "All apps" else "Favorites" },
-                contentPadding = PaddingValues(start = 24.dp, end = 8.dp, top = 24.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = LauncherLayout.ContentStart, bottom = 24.dp),
             ) {
                 item(key = "home-header", contentType = "header") {
                     Column {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("cascadia", fontSize = 16.sp, modifier = Modifier.weight(1f))
-                            TextButton(onClick = { settings = true }) { Text("Settings") }
-                        }
+                        Spacer(Modifier.height(homeTop))
                         HomeClock(onClick = onClock)
                         if (!isDefaultHome) {
                             TextButton(onClick = onChooseHome) { Text("Set as default home") }
                         }
-                        Spacer(Modifier.height(24.dp))
-                        Text("Favorites", style = MaterialTheme.typography.labelLarge, modifier = Modifier.semantics { heading() })
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(LauncherLayout.ClockFavoritesGap))
                     }
                 }
                 items(pins, key = { "pin:${it.id}" }, contentType = { "app" }) { app ->
-                    AppRow(app, model.apps, inventory.revision,
+                    AppRow(app, model.apps, inventory.revision, preferences.iconShape,
                         onClick = { if (!model.apps.launch(app.id)) message("This app is no longer available.") },
                         onLongClick = { appOptions = app })
                 }
                 item(key = "home-help", contentType = "help") {
-                    Column(Modifier.padding(vertical = 24.dp)) {
+                    Column(Modifier.padding(top = if (pins.isEmpty() || inventory.loading || inventory.error != null) 16.dp else 0.dp,
+                        bottom = if (pins.isEmpty() || inventory.loading || inventory.error != null) 24.dp else 0.dp)) {
                         when {
                             inventory.loading -> Text("Loading apps…")
                             inventory.error != null -> Text(inventory.error!!)
                             pins.isEmpty() -> Text("Make room for what matters.\nTouch the alphabet, then long-press an app to pin it.",
                                 style = MaterialTheme.typography.bodyLarge)
                         }
-                        if (pins.isNotEmpty()) {
-                            Text("Slide along the alphabet to browse.", style = MaterialTheme.typography.bodySmall)
-                        }
                     }
                 }
                 if (browsing) {
-                    index.sections.forEach { section ->
+                    sections.forEach { section ->
                         item(key = "section:${section.letter}", contentType = "section") {
-                            Text(section.letter, color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.headlineMedium,
-                                modifier = Modifier.padding(start = 8.dp, top = 20.dp, bottom = 12.dp).semantics { heading() })
+                            Column {
+                                // Space belongs to this section's item, not a negative
+                                // scroll offset that could reveal clock/favorites above it.
+                                if (section.letter == anchoredLetter) Spacer(Modifier.height(heldTop))
+                                Text(section.letter, color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = LauncherLayout.LabelSize, lineHeight = LauncherLayout.LabelLineHeight,
+                                    modifier = Modifier.testTag("section-heading:${section.letter}")
+                                        .padding(top = 16.dp, bottom = 8.dp).semantics { heading() })
+                            }
                         }
                         items(section.apps, key = { "app:${it.id}" }, contentType = { "app" }) { app ->
-                            AppRow(app, model.apps, inventory.revision,
+                            AppRow(app, model.apps, inventory.revision, preferences.iconShape,
                                 onClick = { if (!model.apps.launch(app.id)) message("This app is no longer available.") },
                                 onLongClick = { appOptions = app })
                         }
@@ -189,7 +213,22 @@ fun LauncherScreen(
                     if (index.sections.isEmpty() && !inventory.loading) {
                         item(key = "empty") { Text("No launchable apps found. Retry from Settings.") }
                     }
-                    // Permit even the final letter to align at the top, hiding clock/pins.
+                    if (selectedLetter == null) {
+                        item(key = "launcher-footer", contentType = "footer") {
+                            Column(Modifier.padding(top = 16.dp).testTag("launcher-footer")) {
+                                FooterAppRow("Cascadia Settings", R.drawable.ic_settings, preferences.iconShape) { settings = true }
+                                FooterAppRow("GitHub", R.drawable.ic_github, preferences.iconShape) {
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW,
+                                            Uri.parse("https://github.com/1upbyte/cascadia-launcher")))
+                                    } catch (_: ActivityNotFoundException) {
+                                        message("No app available to open GitHub.")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // No artificial bottom runway after release.
                     item(key = "browse-tail", contentType = "spacer") {
                         Spacer(Modifier.fillMaxWidth().height(tailHeight).testTag("browse-tail"))
                     }
@@ -200,9 +239,9 @@ fun LauncherScreen(
             occupied = remember(index) { index.sections.map { it.letter }.toSet() },
             selected = selectedLetter,
             onSelect = { openApps(it, feedback = true) },
-            onRelease = { selectedLetter = null },
+            onRelease = ::releaseLetter,
             onAccessibleOpen = { openApps(index.sections.firstOrNull()?.letter ?: "A", feedback = false) },
-            modifier = Modifier.align(Alignment.CenterEnd).padding(vertical = 16.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(top = 16.dp, bottom = 192.dp),
         )
     }
 
@@ -227,6 +266,8 @@ fun LauncherScreen(
     if (settings) {
         SettingsDialog(
             scrim = preferences.scrim,
+            iconShape = preferences.iconShape,
+            onIconShape = model::setIconShape,
             isDefaultHome = isDefaultHome,
             onChooseHome = onChooseHome,
             onWallpaper = onWallpaper,

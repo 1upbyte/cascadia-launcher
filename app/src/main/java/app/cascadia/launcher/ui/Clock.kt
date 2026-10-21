@@ -7,7 +7,7 @@ import android.content.IntentFilter
 import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -53,8 +55,15 @@ fun HomeClock(onClick: () -> Unit) {
         }
     }
     val date = Date(now)
-    Column(Modifier.testTag("home-clock").clickable(role = Role.Button, onClickLabel = "Open clock", onClick = onClick).padding(vertical = 16.dp)) {
-        Text(DateFormat.getTimeFormat(context).format(date), fontSize = 64.sp, lineHeight = 72.sp)
-        Text(DateFormat.getMediumDateFormat(context).format(date), fontSize = 18.sp)
+    val textStyle = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
+    Column(Modifier.testTag("home-clock")
+        .clickable(role = Role.Button, onClickLabel = "Open clock", onClick = onClick)
+        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
+        Text(DateFormat.getTimeFormat(context).format(date),
+            fontSize = LauncherLayout.ClockSize, lineHeight = LauncherLayout.ClockLineHeight,
+            letterSpacing = 0.sp, style = textStyle)
+        Text(DateFormat.format(DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), "EEE d MMM"), date).toString(),
+            fontSize = LauncherLayout.DateSize, lineHeight = LauncherLayout.DateLineHeight,
+            letterSpacing = 0.sp, style = textStyle)
     }
 }

@@ -60,6 +60,25 @@ class AlphabetRailTest {
         }
     }
 
+    @Test fun previewFollowsFingerAndDisappearsOnRelease() {
+        showRail()
+        val rail = compose.onNodeWithContentDescription("Alphabet. Browse all apps")
+        rail.performTouchInput { down(Offset(center.x, center.y)) }
+        compose.waitForIdle()
+        val first = compose.onNodeWithTag("rail-letter-preview", useUnmergedTree = true)
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        rail.performTouchInput { moveTo(Offset(-120f, height - 1f)) }
+        compose.waitForIdle()
+        val pulled = compose.onNodeWithTag("rail-letter-preview", useUnmergedTree = true)
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(pulled.left < first.left)
+        assertTrue(pulled.top >= first.top)
+        assertTrue(pulled.left >= 0f)
+        rail.performTouchInput { up() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("rail-letter-preview", useUnmergedTree = true).assertDoesNotExist()
+    }
+
     @Test fun dragUsesOnlyVisibleLettersInOrder() {
         val selected = mutableListOf<String>()
         showRail { selected += it }

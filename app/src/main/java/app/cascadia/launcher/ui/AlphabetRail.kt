@@ -3,6 +3,9 @@ package app.cascadia.launcher.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.systemGestureExclusion
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -31,6 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -56,6 +63,8 @@ fun AlphabetRail(
     val slotHeight = with(LocalDensity.current) { 19.sp.toDp() }
     var dragging by remember { mutableStateOf(false) }
     var finger by remember { mutableStateOf(Offset.Zero) }
+    var activeLetter by remember { mutableStateOf<String?>(null) }
+    var railLeft by remember { mutableFloatStateOf(0f) }
     var railHeight by remember { mutableFloatStateOf(1f) }
     val curveStrength by animateFloatAsState(
         targetValue = if (dragging) 1f else 0f,
@@ -64,11 +73,12 @@ fun AlphabetRail(
     )
     val select by rememberUpdatedState(onSelect)
     val release by rememberUpdatedState(onRelease)
-    Column(
-        // 60 dp app-list gutter + 8 dp content inset: the invisible touch area
-        // meets the app rows, while the visible letters sit 14 dp from the edge.
-        modifier.width(68.dp).height(slotHeight * letters.size)
+    Box(
+        // Share the app-list gutter: the invisible touch area meets the rows,
+        // while the visible letters sit 14 dp from the edge.
+        modifier.width(LauncherLayout.RailTouchWidth).height(slotHeight * letters.size)
             .onSizeChanged { railHeight = it.height.toFloat() }
+            .onGloballyPositioned { railLeft = it.positionInRoot().x }
             .systemGestureExclusion()
             .semantics(mergeDescendants = true) {
                 contentDescription = "Alphabet. Browse all apps"
@@ -78,11 +88,16 @@ fun AlphabetRail(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     down.consume()
+                    var lastSlot = -1
                     fun choose(position: Offset) {
                         finger = position
                         val slot = (position.y / size.height.coerceAtLeast(1) * letters.size).toInt()
                             .coerceIn(letters.indices)
-                        select(letters[slot])
+                        if (slot != lastSlot) {
+                            lastSlot = slot
+                            activeLetter = letters[slot]
+                            select(letters[slot])
+                        }
                     }
                     dragging = true
                     choose(down.position)
@@ -99,41 +114,66 @@ fun AlphabetRail(
                     }
                 }
             },
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        letters.forEachIndexed { index, letter ->
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            letters.forEachIndexed { index, letter ->
+                Box(
+                    Modifier.weight(1f).fillMaxSize().graphicsLayer {
+                        // Read fast-moving pointer/animation state in the drawing layer:
+                        // dragging never remeasures the list or changes touch geometry.
+                        val actualSlotHeight = railHeight / letters.size
+                        val glyphCenterX = size.width - 14.dp.toPx()
+                        val maxPull = minOf(280.dp.toPx(), railLeft + glyphCenterX - 96.dp.toPx())
+                            .coerceAtLeast(64.dp.toPx())
+                        val pull = (glyphCenterX - finger.x + 32.dp.toPx())
+                            .coerceIn(64.dp.toPx(), maxPull)
+                        val fingerY = finger.y.coerceIn(actualSlotHeight / 2f, railHeight - actualSlotHeight / 2f)
+                        val distance = (index + 0.5f) * actualSlotHeight - fingerY
+                        val weight = railCurveWeight(distance, railCurveSpread(railHeight, pull))
+                        // Only bend horizontally: the original slots and glyph sizes stay
+                        // stable. The peak follows the finger continuously between letters.
+                        translationX = -pull * weight * curveStrength
+                    },
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Text(
+                        letter,
+                        color = Color.White.copy(alpha = if (selected == null || selected == letter) 1f else 0.85f),
+                        fontFamily = LauncherFont,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 16.sp,
+                        lineHeight = 19.sp,
+                        letterSpacing = 0.sp,
+                        style = TextStyle(
+                            platformStyle = PlatformTextStyle(includeFontPadding = false),
+                            shadow = Shadow(Color.Black.copy(alpha = 0.5f), Offset(0f, 1f), 3f),
+                        ),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.width(28.dp).padding(horizontal = 2.dp),
+                    )
+                }
+            }
+        }
+        if (dragging) {
             Box(
-                Modifier.weight(1f).fillMaxSize().graphicsLayer {
-                    // Read fast-moving pointer/animation state in the drawing layer:
-                    // dragging never remeasures the list or changes touch geometry.
-                    val actualSlotHeight = railHeight / letters.size
-                    val glyphCenterX = size.width - 14.dp.toPx()
-                    val pull = (glyphCenterX - finger.x + 32.dp.toPx())
-                        .coerceIn(64.dp.toPx(), 140.dp.toPx())
-                    val fingerY = finger.y.coerceIn(actualSlotHeight / 2f, railHeight - actualSlotHeight / 2f)
-                    val distance = (index + 0.5f) * actualSlotHeight - fingerY
-                    val weight = railCurveWeight(distance, railCurveSpread(railHeight, pull))
-                    // Only bend horizontally: the original slots and glyph sizes stay
-                    // stable. The peak follows the finger continuously between letters.
-                    translationX = -pull * weight * curveStrength
-                },
-                contentAlignment = Alignment.CenterEnd,
+                Modifier.size(48.dp).graphicsLayer {
+                    val bubbleWidth = size.width
+                    val railGlyphX = LauncherLayout.RailTouchWidth.toPx() - 14.dp.toPx()
+                    val maxPull = minOf(280.dp.toPx(), railLeft + railGlyphX - 96.dp.toPx())
+                        .coerceAtLeast(64.dp.toPx())
+                    val pull = (railGlyphX - finger.x + 32.dp.toPx()).coerceIn(64.dp.toPx(), maxPull)
+                    val desiredX = minOf(finger.x - bubbleWidth - 24.dp.toPx(),
+                        railGlyphX - pull * curveStrength - bubbleWidth - 16.dp.toPx())
+                    translationX = desiredX.coerceAtLeast(8.dp.toPx() - railLeft)
+                    translationY = (finger.y - size.height / 2f)
+                        .coerceIn(0f, (railHeight - size.height).coerceAtLeast(0f))
+                    alpha = curveStrength
+                }.background(Color.White, CircleShape)
+                    .clearAndSetSemantics { testTag = "rail-letter-preview" },
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    letter,
-                    color = Color.White.copy(alpha = if (selected == null || selected == letter) 1f else 0.85f),
-                    fontFamily = LauncherFont,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 16.sp,
-                    lineHeight = 19.sp,
-                    letterSpacing = 0.sp,
-                    style = TextStyle(
-                        platformStyle = PlatformTextStyle(includeFontPadding = false),
-                        shadow = Shadow(Color.Black.copy(alpha = 0.5f), Offset(0f, 1f), 3f),
-                    ),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.width(28.dp).padding(horizontal = 2.dp),
-                )
+                Text(activeLetter.orEmpty(), color = Color.Black, fontFamily = LauncherFont,
+                    fontSize = 28.sp, lineHeight = 36.sp, fontWeight = FontWeight.Normal)
             }
         }
     }

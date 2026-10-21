@@ -17,7 +17,8 @@ the agreed behavior, architecture, and remaining release work.
 - The list stays open after release. Background drags scroll; **Back** closes
   browsing. Pressing **Home** resets to favorites.
 - Clock and favorites scroll offscreen when jumping to a letter.
-- Settings for wallpaper selection, dimming, and favorite ordering. Drag a reorder
+- App-list footer shortcuts for Cascadia Settings and the GitHub repository.
+- Settings for wallpaper selection, dimming, favorite ordering, and Square/Squircle/Circle icon shapes (Squircle by default). Drag a reorder
   handle or use accessible Up/Down buttons.
 - No network permissions, accounts, analytics, ads, or Google Play services.
 
@@ -97,9 +98,26 @@ With one authorized USB/wireless ADB device connected:
 ./scripts/dev.sh
 ```
 
-This incrementally builds debug, reinstalls with `-r` (preserving favorites and
-settings), and opens Cascadia. Re-run after edits; this is a restart, not hot reload.
+This builds the optimized, development-signed `benchmark` variant, reinstalls
+with `-r` (preserving favorites and settings), and opens Cascadia. Debug Compose
+builds are not suitable for judging smoothness. For debugger/tooling support,
+use `CASCADIA_BUILD_TYPE=debug ./scripts/dev.sh`. Both variants use the same local
+development signature. Re-run after edits; this is a restart, not hot reload.
 It does not change your default Home selection or run instrumentation tests.
+
+For automatic rebuild/install/restart whenever source or build configuration changes:
+
+```sh
+python3 scripts/dev-watch.py
+# With multiple devices:
+python3 scripts/dev-watch.py DEVICE_SERIAL
+```
+
+The watcher deploys once immediately, then waits for edits to settle before each
+update. It uses the optimized variant and preserves favorites/settings. Keep it
+running in a terminal; Ctrl-C stops it. Python 3 is the only additional requirement.
+The chosen device stays fixed for the session. Failed updates wait for another
+source edit before retrying. Only one watcher can run per checkout.
 
 For multiple devices, select one explicitly:
 

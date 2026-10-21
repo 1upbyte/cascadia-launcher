@@ -66,6 +66,37 @@ EMULATOR warning using the runner's `androidx.benchmark.suppressErrors=EMULATOR`
 argument. Such timings are debugging evidence only and must not be reported as
 physical-device performance.
 
+## Rail smoothness investigation
+
+The CLI deploy helper now defaults to the optimized `benchmark` variant. Use
+`CASCADIA_BUILD_TYPE=debug ./scripts/dev.sh` only when debugger/tooling support is
+needed. Both builds use the development key and preserve existing app data.
+
+The pre-change Pixel debug process had 725 accumulated frames, 128 janky
+(17.66%), a 7 ms median/40 ms p90 UI time, and 2 ms median/3 ms p90 GPU time.
+These counters include uncontrolled prior use and startup; they are evidence of
+missed frames, **not** a controlled rail benchmark or a before/after comparison.
+
+The follow-up removes coroutine-delayed section jumps, de-duplicates rail
+callbacks per letter, materializes only the held section, and supplies cached
+icons synchronously (cache misses still decode off-main). The window requests
+the highest refresh rate supported at its current resolution; the Pixel window
+reports a 120 Hz preference. Android still applies user/power/thermal policy.
+A refresh-rate request is not an achieved frame-rate measurement.
+
+The phone was screen-off/locked during deployment. For a manual check after
+unlocking, keep power/thermal conditions consistent and collect a fresh sample:
+
+```sh
+adb -s DEVICE_SERIAL shell dumpsys gfxinfo app.cascadia.launcher reset
+# Scrub the rail and scroll for a repeatable interval, then:
+adb -s DEVICE_SERIAL shell dumpsys gfxinfo app.cascadia.launcher framestats
+```
+
+Separate cold icon-cache passes from warm repeats. Use the Macrobenchmark and
+Perfetto workflow above before claiming sustained 60/120 Hz or quantified gains.
+The existing baseline profile predates the held-section path and needs refreshing.
+
 ## Acceptance and follow-ups
 
 - Confirm smooth 60/120 Hz rail and list navigation on the Pixel 8.

@@ -5,6 +5,7 @@ set -euo pipefail
 if [[ "${1:-}" == "--help" || $# -gt 1 ]]; then
     printf 'Usage: %s [DEVICE_SERIAL]\n' "$0"
     printf 'Uses ANDROID_SERIAL, or the only authorized ADB device, if omitted.\n'
+    printf 'Optimized build by default. Set CASCADIA_BUILD_TYPE=debug for debugger/tooling.\n'
     exit 0
 fi
 
@@ -24,9 +25,15 @@ fi
 
 # Validate before building, and never silently target another connected device.
 [[ "$(adb -s "$serial" get-state)" == device ]] || { printf 'Device is not ready.\n' >&2; exit 1; }
-printf 'Building debug APK for %s…\n' "$serial"
-./gradlew :app:assembleDebug
-adb -s "$serial" install -r app/build/outputs/apk/debug/app-debug.apk
+variant="${CASCADIA_BUILD_TYPE:-benchmark}"
+case "$variant" in
+    benchmark) task=assembleBenchmark ;;
+    debug) task=assembleDebug ;;
+    *) printf 'CASCADIA_BUILD_TYPE must be benchmark or debug.\n' >&2; exit 1 ;;
+esac
+printf 'Building %s APK for %s…\n' "$variant" "$serial"
+./gradlew ":app:$task"
+adb -s "$serial" install -r "app/build/outputs/apk/$variant/app-$variant.apk"
 adb -s "$serial" shell am start -W \
     -a android.intent.action.MAIN -c android.intent.category.HOME \
     -n app.cascadia.launcher/.LauncherActivity

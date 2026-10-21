@@ -4,6 +4,8 @@ import android.app.role.RoleManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.hardware.display.DisplayManager
+import android.view.Display
 import android.os.Bundle
 import android.provider.AlarmClock
 import android.provider.Settings
@@ -46,6 +48,15 @@ class LauncherActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Request the panel's highest native-resolution rate, not a hard-coded
+        // 120 Hz. Android still arbitrates battery, thermal and user constraints.
+        getSystemService(DisplayManager::class.java).getDisplay(Display.DEFAULT_DISPLAY)?.let { display ->
+            val current = display.mode
+            val refreshRate = display.supportedModes
+                .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
+                .maxOfOrNull { it.refreshRate } ?: current.refreshRate
+            window.attributes = window.attributes.apply { preferredRefreshRate = refreshRate }
+        }
         defaultHome = getSystemService(RoleManager::class.java).isRoleHeld(RoleManager.ROLE_HOME)
     }
 

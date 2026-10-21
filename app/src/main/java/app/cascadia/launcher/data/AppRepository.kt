@@ -8,6 +8,9 @@ import androidx.core.content.ContextCompat
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.AdaptiveIconDrawable
+import android.graphics.drawable.Drawable
 import android.os.Process
 import android.os.UserHandle
 import android.util.LruCache
@@ -75,14 +78,20 @@ class AppRepository(context: Context, scope: CoroutineScope) {
 
     fun refresh() { refreshes.trySend(Unit) }
 
-    suspend fun icon(id: String, size: Int, revision: Int): Bitmap? = withContext(Dispatchers.IO) {
-        val key = "$id:$size:$revision"
-        icons.get(key) ?: runCatching {
-            val component = ComponentName.unflattenFromString(id) ?: return@withContext null
-            launcher.getActivityList(component.packageName, user)
-                .firstOrNull { it.componentName == component }
-                ?.getBadgedIcon(0)?.toBitmap(size, size)?.also { icons.put(key, it) }
-        }.getOrNull()
+    fun cachedIcon(id: String, size: Int, revision: Int): Bitmap? =
+        icons.get("$id:$size:$revision")
+
+    suspend fun icon(id: String, size: Int, revision: Int): Bitmap? {
+        cachedIcon(id, size, revision)?.let { return it }
+        return withContext(Dispatchers.IO) {
+            val key = "$id:$size:$revision"
+            icons.get(key) ?: runCatching {
+                val component = ComponentName.unflattenFromString(id) ?: return@withContext null
+                launcher.getActivityList(component.packageName, user)
+                    .firstOrNull { it.componentName == component }
+                    ?.getBadgedIcon(0)?.let { renderIcon(it, size) }?.also { icons.put(key, it) }
+            }.getOrNull()
+        }
     }
 
     fun launch(id: String): Boolean = runCatching {
@@ -94,4 +103,16 @@ class AppRepository(context: Context, scope: CoroutineScope) {
         val component = requireNotNull(ComponentName.unflattenFromString(id))
         launcher.startAppDetailsActivity(component, user, null, null)
     }.isSuccess
+}
+
+/** Draw adaptive layers directly so the system's circular mask is not baked in. */
+internal fun renderIcon(drawable: Drawable, size: Int): Bitmap {
+    if (drawable !is AdaptiveIconDrawable) return drawable.toBitmap(size, size)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    // Setting adaptive bounds also supplies the platform's overscan bounds to its layers.
+    drawable.setBounds(0, 0, size, size)
+    drawable.background?.draw(canvas)
+    drawable.foreground?.draw(canvas)
+    return bitmap
 }
