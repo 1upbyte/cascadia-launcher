@@ -103,6 +103,13 @@ fun LauncherScreen(
         }
     }
 
+    fun returnHome() {
+        browsing = false
+        selectedLetter = null
+        anchoredLetter = null
+        scope.launch { list.scrollToItem(0) }
+    }
+
     LaunchedEffect(homeRequest) {
         if (homeRequest > 0) {
             browsing = false
@@ -244,6 +251,7 @@ fun LauncherScreen(
             occupied = remember(index) { index.sections.map { it.letter }.toSet() },
             selected = selectedLetter,
             onSelect = { openApps(it, feedback = true) },
+            onReturnHome = ::returnHome,
             onRelease = ::releaseLetter,
             onAccessibleOpen = { openApps(index.sections.firstOrNull()?.letter ?: "A", feedback = false) },
             modifier = Modifier.align(Alignment.BottomEnd).padding(top = 16.dp, bottom = 192.dp),

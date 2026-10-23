@@ -40,6 +40,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -53,12 +55,14 @@ fun AlphabetRail(
     occupied: Set<String>,
     selected: String?,
     onSelect: (String) -> Unit,
+    onReturnHome: () -> Unit,
     onRelease: () -> Unit,
     onAccessibleOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val letters = remember(occupied) { AppIndex.RAIL.filter { it in occupied } }
     if (letters.isEmpty()) return
+    val slotCount = letters.size + 1
 
     val slotHeight = with(LocalDensity.current) { 19.sp.toDp() }
     var dragging by remember { mutableStateOf(false) }
@@ -72,17 +76,22 @@ fun AlphabetRail(
         label = "alphabet-curve",
     )
     val select by rememberUpdatedState(onSelect)
+    val returnHome by rememberUpdatedState(onReturnHome)
     val release by rememberUpdatedState(onRelease)
     Box(
         // Share the app-list gutter: the invisible touch area meets the rows,
         // while the visible letters sit 14 dp from the edge.
-        modifier.width(LauncherLayout.RailTouchWidth).height(slotHeight * letters.size)
+        modifier = modifier.width(LauncherLayout.RailTouchWidth).height(slotHeight * slotCount)
             .onSizeChanged { railHeight = it.height.toFloat() }
             .onGloballyPositioned { railLeft = it.positionInRoot().x }
             .systemGestureExclusion()
             .semantics(mergeDescendants = true) {
-                contentDescription = "Alphabet. Browse all apps"
+                contentDescription = "Alphabet and favorites shortcut"
                 onClick(label = "Open all apps") { onAccessibleOpen(); true }
+                customActions = listOf(CustomAccessibilityAction("Return to favorites") {
+                    returnHome()
+                    true
+                })
             }
             .pointerInput(letters) {
                 awaitEachGesture {
@@ -91,12 +100,17 @@ fun AlphabetRail(
                     var lastSlot = -1
                     fun choose(position: Offset) {
                         finger = position
-                        val slot = (position.y / size.height.coerceAtLeast(1) * letters.size).toInt()
-                            .coerceIn(letters.indices)
+                        val slot = (position.y / size.height.coerceAtLeast(1) * slotCount).toInt()
+                            .coerceIn(0, slotCount - 1)
                         if (slot != lastSlot) {
                             lastSlot = slot
-                            activeLetter = letters[slot]
-                            select(letters[slot])
+                            if (slot == 0) {
+                                activeLetter = "★"
+                                returnHome()
+                            } else {
+                                activeLetter = letters[slot - 1]
+                                select(letters[slot - 1])
+                            }
                         }
                     }
                     dragging = true
@@ -116,19 +130,39 @@ fun AlphabetRail(
             },
     ) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                Modifier.weight(1f).fillMaxSize().graphicsLayer {
+                    val actualSlotHeight = railHeight / slotCount
+                    val glyphCenterX = size.width - 14.dp.toPx()
+                    val maxPull = minOf(280.dp.toPx(), railLeft + glyphCenterX - 96.dp.toPx())
+                        .coerceAtLeast(64.dp.toPx())
+                    val pull = (glyphCenterX - finger.x + 32.dp.toPx())
+                        .coerceIn(64.dp.toPx(), maxPull)
+                    val fingerY = finger.y.coerceIn(actualSlotHeight / 2f, railHeight - actualSlotHeight / 2f)
+                    val distance = actualSlotHeight / 2f - fingerY
+                    val weight = railCurveWeight(distance, railCurveSpread(railHeight, pull))
+                    translationX = -pull * weight * curveStrength
+                },
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Text("★", color = Color.White, fontSize = 16.sp, lineHeight = 19.sp,
+                    style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.5f), Offset(0f, 1f), 3f)),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(28.dp).padding(horizontal = 2.dp))
+            }
             letters.forEachIndexed { index, letter ->
                 Box(
                     Modifier.weight(1f).fillMaxSize().graphicsLayer {
                         // Read fast-moving pointer/animation state in the drawing layer:
                         // dragging never remeasures the list or changes touch geometry.
-                        val actualSlotHeight = railHeight / letters.size
+                        val actualSlotHeight = railHeight / slotCount
                         val glyphCenterX = size.width - 14.dp.toPx()
                         val maxPull = minOf(280.dp.toPx(), railLeft + glyphCenterX - 96.dp.toPx())
                             .coerceAtLeast(64.dp.toPx())
                         val pull = (glyphCenterX - finger.x + 32.dp.toPx())
                             .coerceIn(64.dp.toPx(), maxPull)
                         val fingerY = finger.y.coerceIn(actualSlotHeight / 2f, railHeight - actualSlotHeight / 2f)
-                        val distance = (index + 0.5f) * actualSlotHeight - fingerY
+                        val distance = (index + 1.5f) * actualSlotHeight - fingerY
                         val weight = railCurveWeight(distance, railCurveSpread(railHeight, pull))
                         // Only bend horizontally: the original slots and glyph sizes stay
                         // stable. The peak follows the finger continuously between letters.

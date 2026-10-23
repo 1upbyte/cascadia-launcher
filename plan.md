@@ -356,3 +356,7 @@ No production signing key has been created, no public release has been uploaded,
 
 - Matched the held section's vertical anchor to the alphabet rail's actual position 192 dp above the safe-area bottom, removing the oversized gap above selected app sections. Preserved the in-progress release-position adjustment in `LauncherScreen.kt`.
 - The optimized benchmark build succeeded and installed on Pixel 8 over ADB; Cascadia cold-started successfully. Automated tests were not run for this change.
+
+### Favorites shortcut on the alphabet rail
+
+- Added the star as the top alphabet-rail slot, sharing the letter rail's gesture area. Touching or scrubbing onto it returns to the default clock-and-favorites position; TalkBack also exposes a return-to-favorites action.
