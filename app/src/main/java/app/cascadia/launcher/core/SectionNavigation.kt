@@ -10,10 +10,17 @@ fun browseSectionTop(
     slotCount: Int,
     slotHeight: Float,
     remainingHeight: Float,
+    bottomInset: Float? = null,
 ): Float {
     if (slotCount <= 0 || viewportHeight <= 0f) return 0f
-    val railHeight = (slotHeight * slotCount).coerceAtMost((viewportHeight - 32f).coerceAtLeast(0f))
-    val firstSlotCenter = (viewportHeight - railHeight) / 2f + railHeight / slotCount / 2f
+    val railHeight = (slotHeight * slotCount).coerceAtMost(
+        (viewportHeight - (bottomInset ?: 0f) - if (bottomInset == null) 32f else 16f).coerceAtLeast(0f),
+    )
+    val firstSlotCenter = if (bottomInset == null) {
+        (viewportHeight - railHeight) / 2f + railHeight / slotCount / 2f
+    } else {
+        viewportHeight - bottomInset - railHeight + railHeight / slotCount / 2f
+    }
     val preferredTop = (firstSlotCenter - 24f).coerceAtLeast(0f)
     return maxOf(preferredTop, viewportHeight - 24f - remainingHeight)
 }

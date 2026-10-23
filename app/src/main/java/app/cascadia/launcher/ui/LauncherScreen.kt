@@ -60,6 +60,7 @@ fun LauncherScreen(
     var homeOffset by rememberSaveable { mutableIntStateOf(0) }
     var selectedLetter by remember { mutableStateOf<String?>(null) }
     var anchoredLetter by rememberSaveable { mutableStateOf<String?>(null) }
+    var heldSectionTopPx by remember { mutableIntStateOf(0) }
     var settings by rememberSaveable { mutableStateOf(false) }
     var reorder by rememberSaveable { mutableStateOf(false) }
     var appOptions by remember { mutableStateOf<AppEntry?>(null) }
@@ -94,10 +95,11 @@ fun LauncherScreen(
     fun releaseLetter() {
         val letter = selectedLetter ?: return
         selectedLetter = null
-        // Keep the section's spacer and scroll offset while restoring the full
-        // list, so neither its heading nor its apps move on release.
+        // Remove the temporary positioning spacer from the restored full list,
+        // then offset the section item to keep its heading and apps in place.
+        anchoredLetter = null
         if (browsing) index.sectionRow(letter, pins.size, holding = false)?.let {
-            list.requestScrollToItem(it, list.firstVisibleItemScrollOffset)
+            list.requestScrollToItem(it, -heldSectionTopPx)
         }
     }
 
@@ -153,8 +155,9 @@ fun LauncherScreen(
             }
             val heldTop = if (anchorSlot >= 0) browseSectionTop(
                 viewportHeight.value, index.sections.size,
-                with(density) { 19.sp.toDp().value }, remainingHeight.value,
+                with(density) { 19.sp.toDp().value }, remainingHeight.value, bottomInset = 192.dp.value,
             ).dp else 0.dp
+            SideEffect { heldSectionTopPx = with(density) { heldTop.roundToPx() } }
             // While holding, reserve exactly the space occupied by later sections.
             // Release swaps this blank area for real rows without changing scroll bounds.
             val tailHeight = if (selectedLetter != null) {

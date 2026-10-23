@@ -351,3 +351,8 @@ No production signing key has been created, no public release has been uploaded,
 - Added a live-preview App scale slider in Settings (75–150%, 5% steps, default 100%) with a reset action. Scales favorites, app rows, section labels and footer shortcuts together; keeps rail and clock at their existing sizes. Saves on slider release; updates list navigation geometry to match. Touch rows remain at least 48 dp. Icons use a stable cache resolution suitable for the largest setting to avoid redecoding throughout a drag.
 - Validation: unit tests (including invalid saved-scale handling), lint, privacy audit, debug/release builds, Android-test compilation, and diff checks passed. Added a UI regression for scaled favorites, slider persistence across recreation, and reset; connected tests were not run on the daily-use phone.
 - Watcher installed the optimized app-scale update and cold-started Cascadia on Pixel 8 successfully, preserving app data.
+
+### Selected-letter section spacing
+
+- Matched the held section's vertical anchor to the alphabet rail's actual position 192 dp above the safe-area bottom, removing the oversized gap above selected app sections. Preserved the in-progress release-position adjustment in `LauncherScreen.kt`.
+- The optimized benchmark build succeeded and installed on Pixel 8 over ADB; Cascadia cold-started successfully. Automated tests were not run for this change.
