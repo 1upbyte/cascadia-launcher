@@ -54,6 +54,7 @@ fun LauncherScreen(
     val appLayout = remember(appScale) { AppLayout(appScale) }
     val saveError by model.error.collectAsStateWithLifecycle()
     val pins = remember(preferences.pins, inventory.apps) { visiblePins(preferences.pins, inventory.apps) }
+    val alphabeticalIndex = remember(index, preferences.pins) { index.excluding(preferences.pins.toSet()) }
     val list = rememberLazyListState()
     var browsing by rememberSaveable { mutableStateOf(false) }
     var homeIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -67,7 +68,7 @@ fun LauncherScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
-    val sections = remember(index, selectedLetter) { index.browseSections(selectedLetter) }
+    val sections = remember(alphabeticalIndex, selectedLetter) { alphabeticalIndex.browseSections(selectedLetter) }
 
     fun message(text: String) { Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
     fun openApps(letter: String, feedback: Boolean) {
@@ -79,7 +80,8 @@ fun LauncherScreen(
         if (selectedLetter != letter || !feedback) {
             // Apply the jump in the same remeasure as the section change,
             // not a coroutine/recomposition later. Only runs on letter changes.
-            index.sectionRow(letter, pins.size, holding = feedback)?.let {
+            alphabeticalIndex.sectionRow(letter, pins.size, holding = feedback,
+                includeHomePrefix = false)?.let {
                 list.requestScrollToItem(it)
             }
             if (feedback) {
@@ -98,7 +100,8 @@ fun LauncherScreen(
         // Remove the temporary positioning spacer from the restored full list,
         // then offset the section item to keep its heading and apps in place.
         anchoredLetter = null
-        if (browsing) index.sectionRow(letter, pins.size, holding = false)?.let {
+        if (browsing) alphabeticalIndex.sectionRow(letter, pins.size, holding = false,
+            includeHomePrefix = false)?.let {
             list.requestScrollToItem(it, -heldSectionTopPx)
         }
     }
@@ -154,14 +157,14 @@ fun LauncherScreen(
             val homeGroupHeight = clockHeight + LauncherLayout.ClockFavoritesGap + rowHeight * pins.size + 48.dp
             val homeTop = homeTopSpacing(viewportHeight.value, homeGroupHeight.value).dp
             val headingHeight = with(density) { appLayout.labelLineHeight.toDp() } + 24.dp
-            val anchorSlot = index.sections.indexOfFirst { it.letter == anchoredLetter }
-            val remainingSections = if (anchorSlot >= 0) index.sections.drop(anchorSlot) else emptyList()
+            val anchorSlot = alphabeticalIndex.sections.indexOfFirst { it.letter == anchoredLetter }
+            val remainingSections = if (anchorSlot >= 0) alphabeticalIndex.sections.drop(anchorSlot) else emptyList()
             val footerHeight = rowHeight * 2 + 16.dp
             val remainingHeight = remainingSections.fold(footerHeight) { height, section ->
                 height + headingHeight + rowHeight * section.apps.size
             }
             val heldTop = if (anchorSlot >= 0) browseSectionTop(
-                viewportHeight.value, index.sections.size,
+                viewportHeight.value, alphabeticalIndex.sections.size,
                 with(density) { 19.sp.toDp().value }, remainingHeight.value, bottomInset = 192.dp.value,
             ).dp else 0.dp
             SideEffect { heldSectionTopPx = with(density) { heldTop.roundToPx() } }
@@ -177,29 +180,31 @@ fun LauncherScreen(
                     .semantics { stateDescription = if (browsing) "All apps" else "Favorites" },
                 contentPadding = PaddingValues(start = LauncherLayout.ContentStart, bottom = 24.dp),
             ) {
-                item(key = "home-header", contentType = "header") {
-                    Column {
-                        Spacer(Modifier.height(homeTop))
-                        HomeClock(onClick = onClock)
-                        if (!isDefaultHome) {
-                            TextButton(onClick = onChooseHome) { Text("Set as default home") }
+                if (!browsing) {
+                    item(key = "home-header", contentType = "header") {
+                        Column {
+                            Spacer(Modifier.height(homeTop))
+                            HomeClock(onClick = onClock)
+                            if (!isDefaultHome) {
+                                TextButton(onClick = onChooseHome) { Text("Set as default home") }
+                            }
+                            Spacer(Modifier.height(LauncherLayout.ClockFavoritesGap))
                         }
-                        Spacer(Modifier.height(LauncherLayout.ClockFavoritesGap))
                     }
-                }
-                items(pins, key = { "pin:${it.id}" }, contentType = { "app" }) { app ->
-                    AppRow(app, model.apps, inventory.revision, preferences.iconShape, appLayout,
-                        onClick = { if (!model.apps.launch(app.id)) message("This app is no longer available.") },
-                        onLongClick = { appOptions = app })
-                }
-                item(key = "home-help", contentType = "help") {
-                    Column(Modifier.padding(top = if (pins.isEmpty() || inventory.loading || inventory.error != null) 16.dp else 0.dp,
-                        bottom = if (pins.isEmpty() || inventory.loading || inventory.error != null) 24.dp else 0.dp)) {
-                        when {
-                            inventory.loading -> Text("Loading apps…")
-                            inventory.error != null -> Text(inventory.error!!)
-                            pins.isEmpty() -> Text("Make room for what matters.\nTouch the alphabet, then long-press an app to pin it.",
-                                style = MaterialTheme.typography.bodyLarge)
+                    items(pins, key = { "pin:${it.id}" }, contentType = { "app" }) { app ->
+                        AppRow(app, model.apps, inventory.revision, preferences.iconShape, appLayout,
+                            onClick = { if (!model.apps.launch(app.id)) message("This app is no longer available.") },
+                            onLongClick = { appOptions = app })
+                    }
+                    item(key = "home-help", contentType = "help") {
+                        Column(Modifier.padding(top = if (pins.isEmpty() || inventory.loading || inventory.error != null) 16.dp else 0.dp,
+                            bottom = if (pins.isEmpty() || inventory.loading || inventory.error != null) 24.dp else 0.dp)) {
+                            when {
+                                inventory.loading -> Text("Loading apps…")
+                                inventory.error != null -> Text(inventory.error!!)
+                                pins.isEmpty() -> Text("Make room for what matters.\nTouch the alphabet, then long-press an app to pin it.",
+                                    style = MaterialTheme.typography.bodyLarge)
+                            }
                         }
                     }
                 }
@@ -207,9 +212,12 @@ fun LauncherScreen(
                     sections.forEach { section ->
                         item(key = "section:${section.letter}", contentType = "section") {
                             Column {
-                                // Space belongs to this section's item, not a negative
-                                // scroll offset that could reveal clock/favorites above it.
+                                // Keep the held anchor inside the section item as the
+                                // single-section view is swapped for the full list.
                                 if (section.letter == anchoredLetter) Spacer(Modifier.height(heldTop))
+                                else if (selectedLetter == null && section.letter == alphabeticalIndex.sections.firstOrNull()?.letter) {
+                                    Spacer(Modifier.height(viewportHeight / 3).testTag("browse-top-space"))
+                                }
                                 Text(section.letter, color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = appLayout.labelSize, lineHeight = appLayout.labelLineHeight,
                                     modifier = Modifier.testTag("section-heading:${section.letter}")
@@ -222,8 +230,8 @@ fun LauncherScreen(
                                 onLongClick = { appOptions = app })
                         }
                     }
-                    if (index.sections.isEmpty() && !inventory.loading) {
-                        item(key = "empty") { Text("No launchable apps found. Retry from Settings.") }
+                    if (alphabeticalIndex.sections.isEmpty() && !inventory.loading) {
+                        item(key = "empty") { Text("No other launchable apps are available.") }
                     }
                     if (selectedLetter == null) {
                         item(key = "launcher-footer", contentType = "footer") {
@@ -248,12 +256,12 @@ fun LauncherScreen(
             }
         }
         AlphabetRail(
-            occupied = remember(index) { index.sections.map { it.letter }.toSet() },
+            occupied = remember(alphabeticalIndex) { alphabeticalIndex.sections.map { it.letter }.toSet() },
             selected = selectedLetter,
             onSelect = { openApps(it, feedback = true) },
             onReturnHome = ::returnHome,
             onRelease = ::releaseLetter,
-            onAccessibleOpen = { openApps(index.sections.firstOrNull()?.letter ?: "A", feedback = false) },
+            onAccessibleOpen = { openApps(alphabeticalIndex.sections.firstOrNull()?.letter ?: "A", feedback = false) },
             modifier = Modifier.align(Alignment.BottomEnd).padding(top = 16.dp, bottom = 192.dp),
         )
     }

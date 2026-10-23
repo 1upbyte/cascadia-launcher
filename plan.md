@@ -360,3 +360,9 @@ No production signing key has been created, no public release has been uploaded,
 ### Favorites shortcut on the alphabet rail
 
 - Added the star as the top alphabet-rail slot, sharing the letter rail's gesture area. Touching or scrubbing onto it returns to the default clock-and-favorites position; TalkBack also exposes a return-to-favorites action.
+
+### Avoid duplicate favorites in alphabetical browsing
+
+- Excluded pinned app IDs from alphabetical sections and rail occupancy. Follow-up: browsing now removes the clock, favorites, and home help rows entirely, so the all-apps view contains alphabetical app rows only (plus the existing footer); returning home restores the favorites view. Empty alphabetical browsing explains when every available app is already favorited.
+- Added top spacing before the first alphabetical category in the released full-list view, placing it about one third of the viewport down while preserving held-letter positioning.
+- Updated README feature notes. The optimized benchmark build succeeded, installed, and launched on Pixel 8; automated tests were not run.

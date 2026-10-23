@@ -26,9 +26,14 @@ fun browseSectionTop(
 }
 
 /** Header + pins + help precede browsing in the single scrolling surface. */
-fun AppIndex.sectionRow(letter: String, pinCount: Int, holding: Boolean): Int? {
+fun AppIndex.sectionRow(
+    letter: String,
+    pinCount: Int,
+    holding: Boolean,
+    includeHomePrefix: Boolean = true,
+): Int? {
     val target = nearestSection(letter) ?: return null
-    var row = pinCount + 2
+    var row = if (includeHomePrefix) pinCount + 2 else 0
     if (!holding) {
         for (section in sections) {
             if (section.letter == target.letter) break
