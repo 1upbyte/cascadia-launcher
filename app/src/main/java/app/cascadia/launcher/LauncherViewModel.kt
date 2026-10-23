@@ -38,6 +38,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun togglePin(id: String) { edits.trySend { app.preferences.togglePin(id) } }
     fun movePin(id: String, delta: Int) { edits.trySend { app.preferences.movePin(id, delta) } }
     fun setIconShape(value: app.cascadia.launcher.core.IconShape) { edits.trySend { app.preferences.setIconShape(value) } }
+    fun setAppScale(value: Float) { edits.trySend { app.preferences.setAppScale(value) } }
     fun setScrim(value: Float) { edits.trySend { app.preferences.setScrim(value) } }
 
 }

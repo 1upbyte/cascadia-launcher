@@ -127,6 +127,41 @@ class LauncherTest {
         compose.onNodeWithText("Make it yours").assertIsDisplayed()
     }
 
+    @Test fun appScaleResizesFavoritesAndPersistsAcrossRecreation() {
+        val original = runBlocking { application.preferences.preferences.first().appScale }
+        val app = AppIndex.build(application.apps.inventory.value.apps).sections.first().apps.first()
+        try {
+            runBlocking {
+                application.preferences.setAppScale(1f)
+                application.preferences.togglePin(app.id)
+            }
+            compose.waitUntil(5_000) { compose.onAllNodesWithText(app.label).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitForIdle()
+            val before = compose.onNodeWithText(app.label, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.height
+            openSettings()
+            compose.onNodeWithTag("app-scale-slider").performScrollTo()
+                .performSemanticsAction(SemanticsActions.SetProgress) { it(1.5f) }
+            compose.waitUntil(5_000) {
+                runBlocking { application.preferences.preferences.first().appScale == 1.5f }
+            }
+            compose.activityRule.scenario.recreate()
+            compose.waitForIdle()
+            compose.onNodeWithText("App scale · 150%").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Done").performScrollTo().performClick()
+            compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+            compose.waitForIdle()
+            val after = compose.onNodeWithText(app.label, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.height
+            org.junit.Assert.assertTrue(after > before * 1.4f)
+            openSettings()
+            compose.onNodeWithText("Reset to 100%").performScrollTo().performClick()
+            compose.waitUntil(5_000) {
+                runBlocking { application.preferences.preferences.first().appScale == 1f }
+            }
+        } finally {
+            runBlocking { application.preferences.setAppScale(original) }
+        }
+    }
+
     @Test fun iconShapePersistsAcrossRecreation() {
         val original = runBlocking { application.preferences.preferences.first().iconShape }
         try {

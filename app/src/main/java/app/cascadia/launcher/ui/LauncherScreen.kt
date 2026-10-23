@@ -50,6 +50,8 @@ fun LauncherScreen(
     val inventory by model.inventory.collectAsStateWithLifecycle()
     val index by model.index.collectAsStateWithLifecycle()
     val preferences by model.preferences.collectAsStateWithLifecycle()
+    var appScale by remember(preferences.appScale) { mutableFloatStateOf(preferences.appScale) }
+    val appLayout = remember(appScale) { AppLayout(appScale) }
     val saveError by model.error.collectAsStateWithLifecycle()
     val pins = remember(preferences.pins, inventory.apps) { visiblePins(preferences.pins, inventory.apps) }
     val list = rememberLazyListState()
@@ -135,14 +137,14 @@ fun LauncherScreen(
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val viewportHeight = maxHeight
             val density = LocalDensity.current
-            val rowHeight = maxOf(LauncherLayout.RowMinHeight,
-                with(density) { LauncherLayout.LabelLineHeight.toDp() } + 16.dp)
+            val rowHeight = maxOf(appLayout.rowMinHeight,
+                with(density) { appLayout.labelLineHeight.toDp() } + appLayout.rowPadding * 2)
             val clockHeight = with(density) {
                 LauncherLayout.ClockLineHeight.toDp() + LauncherLayout.DateLineHeight.toDp()
             }
             val homeGroupHeight = clockHeight + LauncherLayout.ClockFavoritesGap + rowHeight * pins.size + 48.dp
             val homeTop = homeTopSpacing(viewportHeight.value, homeGroupHeight.value).dp
-            val headingHeight = with(density) { LauncherLayout.LabelLineHeight.toDp() } + 24.dp
+            val headingHeight = with(density) { appLayout.labelLineHeight.toDp() } + 24.dp
             val anchorSlot = index.sections.indexOfFirst { it.letter == anchoredLetter }
             val remainingSections = if (anchorSlot >= 0) index.sections.drop(anchorSlot) else emptyList()
             val footerHeight = rowHeight * 2 + 16.dp
@@ -176,7 +178,7 @@ fun LauncherScreen(
                     }
                 }
                 items(pins, key = { "pin:${it.id}" }, contentType = { "app" }) { app ->
-                    AppRow(app, model.apps, inventory.revision, preferences.iconShape,
+                    AppRow(app, model.apps, inventory.revision, preferences.iconShape, appLayout,
                         onClick = { if (!model.apps.launch(app.id)) message("This app is no longer available.") },
                         onLongClick = { appOptions = app })
                 }
@@ -199,13 +201,13 @@ fun LauncherScreen(
                                 // scroll offset that could reveal clock/favorites above it.
                                 if (section.letter == anchoredLetter) Spacer(Modifier.height(heldTop))
                                 Text(section.letter, color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = LauncherLayout.LabelSize, lineHeight = LauncherLayout.LabelLineHeight,
+                                    fontSize = appLayout.labelSize, lineHeight = appLayout.labelLineHeight,
                                     modifier = Modifier.testTag("section-heading:${section.letter}")
                                         .padding(top = 16.dp, bottom = 8.dp).semantics { heading() })
                             }
                         }
                         items(section.apps, key = { "app:${it.id}" }, contentType = { "app" }) { app ->
-                            AppRow(app, model.apps, inventory.revision, preferences.iconShape,
+                            AppRow(app, model.apps, inventory.revision, preferences.iconShape, appLayout,
                                 onClick = { if (!model.apps.launch(app.id)) message("This app is no longer available.") },
                                 onLongClick = { appOptions = app })
                         }
@@ -216,8 +218,8 @@ fun LauncherScreen(
                     if (selectedLetter == null) {
                         item(key = "launcher-footer", contentType = "footer") {
                             Column(Modifier.padding(top = 16.dp).testTag("launcher-footer")) {
-                                FooterAppRow("Cascadia Settings", R.drawable.ic_settings, preferences.iconShape) { settings = true }
-                                FooterAppRow("GitHub", R.drawable.ic_github, preferences.iconShape) {
+                                FooterAppRow("Cascadia Settings", R.drawable.ic_settings, preferences.iconShape, appLayout) { settings = true }
+                                FooterAppRow("GitHub", R.drawable.ic_github, preferences.iconShape, appLayout) {
                                     try {
                                         context.startActivity(Intent(Intent.ACTION_VIEW,
                                             Uri.parse("https://github.com/1upbyte/cascadia-launcher")))
@@ -266,6 +268,9 @@ fun LauncherScreen(
     if (settings) {
         SettingsDialog(
             scrim = preferences.scrim,
+            appScale = appScale,
+            onAppScale = { appScale = it },
+            onAppScaleFinished = model::setAppScale,
             iconShape = preferences.iconShape,
             onIconShape = model::setIconShape,
             isDefaultHome = isDefaultHome,

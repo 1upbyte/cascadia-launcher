@@ -6,6 +6,11 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import app.cascadia.launcher.core.IconShape
+import app.cascadia.launcher.core.AppScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import kotlin.math.roundToInt
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -18,6 +23,9 @@ import androidx.compose.ui.window.DialogProperties
 @Composable
 fun SettingsDialog(
     scrim: Float,
+    appScale: Float,
+    onAppScale: (Float) -> Unit,
+    onAppScaleFinished: (Float) -> Unit,
     iconShape: IconShape,
     onIconShape: (IconShape) -> Unit,
     isDefaultHome: Boolean,
@@ -28,6 +36,7 @@ fun SettingsDialog(
     onRefresh: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var sliderScale by remember(appScale) { mutableFloatStateOf(appScale) }
     var localScrim by remember(scrim) { mutableFloatStateOf(scrim) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth().padding(20.dp).heightIn(max = 640.dp)) {
@@ -39,6 +48,14 @@ fun SettingsDialog(
                 }
                 TextButton(onClick = onReorder) { Text("Reorder favorites") }
                 TextButton(onClick = onWallpaper) { Text("Change system wallpaper") }
+                Spacer(Modifier.height(16.dp))
+                Text("App scale · ${(appScale * 100).roundToInt()}%", style = MaterialTheme.typography.titleMedium)
+                Slider(value = sliderScale, onValueChange = { sliderScale = it; onAppScale(it) },
+                    onValueChangeFinished = { onAppScaleFinished(sliderScale) },
+                    valueRange = AppScale.MIN..AppScale.MAX, steps = 14,
+                    modifier = Modifier.testTag("app-scale-slider").semantics { contentDescription = "App scale" })
+                Text("Resize app icons, labels, and spacing.", style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { sliderScale = 1f; onAppScale(1f); onAppScaleFinished(1f) }) { Text("Reset to 100%") }
                 Spacer(Modifier.height(16.dp))
                 Text("Icon shape", style = MaterialTheme.typography.titleMedium)
                 Column(Modifier.selectableGroup()) {

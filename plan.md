@@ -345,3 +345,9 @@ No production signing key has been created, no public release has been uploaded,
 - Reduced the circular preview from 64 dp to 48 dp and its letter from 36 sp to 28 sp, retaining finger-following placement and rail pull behavior.
 - Validation: unit tests, lint, privacy audit, debug/release builds, and diff checks passed.
 - Watcher installed the optimized smaller-preview update and opened Cascadia on Pixel 8 successfully, preserving app data.
+
+### App scale preference
+
+- Added a live-preview App scale slider in Settings (75–150%, 5% steps, default 100%) with a reset action. Scales favorites, app rows, section labels and footer shortcuts together; keeps rail and clock at their existing sizes. Saves on slider release; updates list navigation geometry to match. Touch rows remain at least 48 dp. Icons use a stable cache resolution suitable for the largest setting to avoid redecoding throughout a drag.
+- Validation: unit tests (including invalid saved-scale handling), lint, privacy audit, debug/release builds, Android-test compilation, and diff checks passed. Added a UI regression for scaled favorites, slider persistence across recreation, and reset; connected tests were not run on the daily-use phone.
+- Watcher installed the optimized app-scale update and cold-started Cascadia on Pixel 8 successfully, preserving app data.

@@ -18,3 +18,13 @@ object LauncherLayout {
     val DateLineHeight = 24.sp
     val ClockFavoritesGap = 24.dp
 }
+
+/** Shared scaled dimensions keep list rows and rail-release geometry in agreement. */
+data class AppLayout(val scale: Float) {
+    val iconSize = LauncherLayout.IconSize * scale
+    val iconLabelGap = LauncherLayout.IconLabelGap * scale
+    val rowMinHeight = (LauncherLayout.RowMinHeight * scale).coerceAtLeast(48.dp)
+    val rowPadding = 8.dp * scale
+    val labelSize = LauncherLayout.LabelSize * scale
+    val labelLineHeight = LauncherLayout.LabelLineHeight * scale
+}

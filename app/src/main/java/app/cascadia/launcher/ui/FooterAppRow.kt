@@ -17,22 +17,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun FooterAppRow(label: String, @DrawableRes icon: Int, iconShape: IconShape, onClick: () -> Unit) {
+fun FooterAppRow(label: String, @DrawableRes icon: Int, iconShape: IconShape, layout: AppLayout, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = LauncherLayout.RowMinHeight)
+        Modifier.fillMaxWidth().heightIn(min = layout.rowMinHeight)
             .clickable(role = Role.Button, onClickLabel = "Open $label", onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(vertical = layout.rowPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(LauncherLayout.IconSize)
+        Box(Modifier.size(layout.iconSize)
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), iconShape.composeShape()),
             contentAlignment = Alignment.Center) {
-            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(28.dp),
+            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(28.dp * layout.scale),
                 tint = MaterialTheme.colorScheme.onSurface)
         }
-        Spacer(Modifier.width(LauncherLayout.IconLabelGap))
-        Text(label, fontFamily = LauncherFont, fontSize = LauncherLayout.LabelSize,
-            lineHeight = LauncherLayout.LabelLineHeight, maxLines = 1,
+        Spacer(Modifier.width(layout.iconLabelGap))
+        Text(label, fontFamily = LauncherFont, fontSize = layout.labelSize,
+            lineHeight = layout.labelLineHeight, maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
 }
