@@ -24,7 +24,7 @@ class AlphabetRailTest {
                 Box(Modifier.fillMaxSize().testTag("rail-container")) {
                     AlphabetRail(
                         occupied = setOf("A", "M", "Z"), selected = null,
-                        onSelect = onSelect, onRelease = {}, onAccessibleOpen = {},
+                        onSelect = onSelect, onReturnHome = {}, onRelease = {}, onAccessibleOpen = {},
                         modifier = Modifier.align(Alignment.CenterEnd),
                     )
                 }

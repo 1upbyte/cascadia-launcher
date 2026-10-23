@@ -21,5 +21,5 @@ requirements. Read `README.md` for build/install/testing instructions.
 - Update the implementation status in `plan.md` after meaningful milestones.
 
 ## Phone development loop
-- Use `python3 scripts/dev-watch.py DEVICE_SERIAL` for automatic optimized builds, reinstall, and restart on source/config edits. Check for an existing watcher before starting another; it enforces one instance per checkout.
-- While the watcher is running, let it deploy edits instead of manually reinstalling. It preserves favorites/settings and keeps the selected device fixed. See README for usage.
+- Deploy to the phone manually; do not start or use a watcher.
+- If ADB permissions are missing, ask the user directly before retrying.

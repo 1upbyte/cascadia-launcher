@@ -119,6 +119,67 @@ class LauncherTest {
         compose.onNodeWithText(next.apps.first().label).assertIsDisplayed()
     }
 
+    @Test fun favoritesGrowDownwardAndBrowsingSharesTheirStartHeight() {
+        val apps = application.apps.inventory.value.apps
+        org.junit.Assume.assumeTrue(apps.size >= 4)
+        val favorite = apps.first()
+        runBlocking { application.preferences.togglePin(favorite.id) }
+        compose.waitForIdle()
+        val favoriteTop = compose.onNodeWithText(favorite.label).fetchSemanticsNode().boundsInRoot.top
+        for (app in apps.drop(1).take(2)) {
+            runBlocking { application.preferences.togglePin(app.id) }
+            compose.waitForIdle()
+            org.junit.Assert.assertEquals(favoriteTop,
+                compose.onNodeWithText(favorite.label).fetchSemanticsNode().boundsInRoot.top, 1f)
+        }
+        val pinnedIds = runBlocking { application.preferences.preferences.first().pins.toSet() }
+        val sections = AppIndex.build(apps).excluding(pinnedIds).sections
+        for (slot in listOf(0, sections.lastIndex).distinct()) {
+            val rail = compose.onNodeWithContentDescription("Alphabet and favorites shortcut")
+            rail.performTouchInput {
+                down(Offset(center.x, height * (slot + 1.5f) / (sections.size + 1)))
+            }
+            compose.waitForIdle()
+            val app = compose.onNodeWithText(sections[slot].apps.first().label)
+            org.junit.Assert.assertEquals("Held ${sections[slot].letter}", favoriteTop,
+                app.fetchSemanticsNode().boundsInRoot.top, 1f)
+            rail.performTouchInput { up() }
+            compose.waitForIdle()
+            org.junit.Assert.assertEquals("Released ${sections[slot].letter}", favoriteTop,
+                app.fetchSemanticsNode().boundsInRoot.top, 1f)
+        }
+    }
+
+    @Test fun releasePreservesAppPositionAcrossScalesAndSections() {
+        val sections = AppIndex.build(application.apps.inventory.value.apps).sections
+        org.junit.Assume.assumeTrue(sections.size >= 3)
+        val originalScale = runBlocking { application.preferences.preferences.first().appScale }
+        try {
+            for (scale in listOf(1f, 1.15f, 1.5f)) {
+                runBlocking { application.preferences.setAppScale(scale) }
+                compose.waitForIdle()
+                for (slot in listOf(0, sections.size / 2, sections.lastIndex)) {
+                    val target = sections[slot]
+                    val rail = compose.onNodeWithContentDescription("Alphabet and favorites shortcut")
+                    rail.performTouchInput {
+                        // The favorites star occupies the first slot.
+                        down(Offset(center.x, height * (slot + 1.5f) / (sections.size + 1)))
+                    }
+                    compose.waitForIdle()
+                    val app = compose.onNodeWithText(target.apps.first().label)
+                    app.assertIsDisplayed()
+                    val heldTop = app.fetchSemanticsNode().boundsInRoot.top
+                    rail.performTouchInput { up() }
+                    compose.waitForIdle()
+                    org.junit.Assert.assertEquals("${target.letter} at scale $scale",
+                        heldTop, app.fetchSemanticsNode().boundsInRoot.top, 1f)
+                }
+            }
+        } finally {
+            runBlocking { application.preferences.setAppScale(originalScale) }
+        }
+    }
+
     @Test fun footerOpensCascadiaSettings() {
         openApps()
         compose.onNodeWithTag("app-list").performScrollToNode(hasTestTag("launcher-footer"))

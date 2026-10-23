@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -25,7 +26,6 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.cascadia.launcher.R
@@ -35,7 +35,6 @@ import app.cascadia.launcher.core.visiblePins
 import app.cascadia.launcher.core.homeTopSpacing
 import app.cascadia.launcher.core.browseSections
 import app.cascadia.launcher.core.sectionRow
-import app.cascadia.launcher.core.browseSectionTop
 import kotlinx.coroutines.launch
 
 @Composable
@@ -141,42 +140,50 @@ fun LauncherScreen(
             val clockHeight = with(density) {
                 LauncherLayout.ClockLineHeight.toDp() + LauncherLayout.DateLineHeight.toDp()
             }
-            val homeGroupHeight = clockHeight + LauncherLayout.ClockFavoritesGap + rowHeight * pins.size + 48.dp
-            val homeTop = homeTopSpacing(viewportHeight.value, homeGroupHeight.value).dp
-            val headingHeight = with(density) { appLayout.labelLineHeight.toDp() } + 24.dp
+            val homeTop = homeTopSpacing(viewportHeight.value).dp
+            var homeHeaderPixels by remember(viewportHeight, density, isDefaultHome) { mutableIntStateOf(0) }
+            var headingPixels by remember(appLayout, density) { mutableIntStateOf(0) }
+            val firstAppTop = if (homeHeaderPixels > 0) with(density) { homeHeaderPixels.toDp() }
+                else homeTop + clockHeight + LauncherLayout.ClockFavoritesGap
+            val headingHeight = if (headingPixels > 0) with(density) { headingPixels.toDp() }
+                else with(density) { appLayout.labelLineHeight.toDp() } + 24.dp
+            // Both views start their first app row at the same height. Browsing
+            // includes a letter heading where home has its clock and date.
+            val browseTopSpace = (firstAppTop - headingHeight).coerceAtLeast(0.dp)
             val anchorSlot = alphabeticalIndex.sections.indexOfFirst { it.letter == anchoredLetter }
             val remainingSections = if (anchorSlot >= 0) alphabeticalIndex.sections.drop(anchorSlot) else emptyList()
             val footerHeight = rowHeight * 2 + 16.dp
             val remainingHeight = remainingSections.fold(footerHeight) { height, section ->
                 height + headingHeight + rowHeight * section.apps.size
             }
-            fun sectionTop(letter: String): androidx.compose.ui.unit.Dp {
-                val slot = alphabeticalIndex.sections.indexOfFirst { it.letter == letter }
-                if (slot < 0) return 0.dp
-                val sectionsFromAnchor = alphabeticalIndex.sections.drop(slot)
-                val height = sectionsFromAnchor.fold(footerHeight) { total, section ->
-                    total + headingHeight + rowHeight * section.apps.size
-                }
-                return browseSectionTop(
-                    viewportHeight.value, alphabeticalIndex.sections.size,
-                    with(density) { 19.sp.toDp().value }, height.value, bottomInset = 192.dp.value,
-                ).dp
-            }
-            val heldTop = anchoredLetter?.let(::sectionTop) ?: 0.dp
+            val heldTop = if (anchoredLetter != null) browseTopSpace else 0.dp
+            // Allow even the final category to start at the shared app height,
+            // rather than moving it down to fill the bottom of the viewport.
+            val browseBottomSpace = (viewportHeight - firstAppTop - rowHeight - footerHeight + 24.dp)
+                .coerceAtLeast(24.dp)
             fun releaseLetter() {
                 val letter = selectedLetter ?: return
+                val section = alphabeticalIndex.sections.firstOrNull { it.letter == letter }
+                // Anchor a real app row: the held heading contains a spacer that
+                // disappears on release, and estimated heights can round differently.
+                val visibleApp = section?.apps?.withIndex()?.firstNotNullOfOrNull { (index, app) ->
+                    list.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "app:${app.id}" }
+                        ?.let { index to it.offset }
+                }
                 selectedLetter = null
-                // Recompute from the current letter and layout immediately; a
-                // post-composition SideEffect can still hold the prior letter's top.
                 anchoredLetter = null
                 if (browsing) alphabeticalIndex.sectionRow(letter, pins.size, holding = false,
                     includeHomePrefix = false)?.let {
+                    if (visibleApp != null) {
+                        list.requestScrollToItem(it + 1 + visibleApp.first, -visibleApp.second)
+                        return
+                    }
                     // The full-list layout adds a leading spacer to its first
                     // section. Account for it so the heading stays at heldTop.
                     val leadingSpace = if (letter == alphabeticalIndex.sections.firstOrNull()?.letter) {
-                        viewportHeight / 3
+                        browseTopSpace
                     } else 0.dp
-                    val offset = with(density) { (leadingSpace - sectionTop(letter)).roundToPx() }
+                    val offset = with(density) { (leadingSpace - browseTopSpace).roundToPx() }
                     list.requestScrollToItem(it, offset)
                 }
             }
@@ -190,11 +197,12 @@ fun LauncherScreen(
                 state = list,
                 modifier = Modifier.fillMaxSize().padding(end = LauncherLayout.RailTouchWidth).testTag("app-list")
                     .semantics { stateDescription = if (browsing) "All apps" else "Favorites" },
-                contentPadding = PaddingValues(start = LauncherLayout.ContentStart, bottom = 24.dp),
+                contentPadding = PaddingValues(start = LauncherLayout.ContentStart,
+                    bottom = if (browsing) browseBottomSpace else 24.dp),
             ) {
                 if (!browsing) {
                     item(key = "home-header", contentType = "header") {
-                        Column {
+                        Column(Modifier.onSizeChanged { homeHeaderPixels = it.height }) {
                             Spacer(Modifier.height(homeTop))
                             HomeClock(onClick = onClock)
                             if (!isDefaultHome) {
@@ -228,11 +236,12 @@ fun LauncherScreen(
                                 // single-section view is swapped for the full list.
                                 if (section.letter == anchoredLetter) Spacer(Modifier.height(heldTop))
                                 else if (selectedLetter == null && section.letter == alphabeticalIndex.sections.firstOrNull()?.letter) {
-                                    Spacer(Modifier.height(viewportHeight / 3).testTag("browse-top-space"))
+                                    Spacer(Modifier.height(browseTopSpace).testTag("browse-top-space"))
                                 }
                                 Text(section.letter, color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = appLayout.labelSize, lineHeight = appLayout.labelLineHeight,
                                     modifier = Modifier.testTag("section-heading:${section.letter}")
+                                        .onSizeChanged { headingPixels = it.height }
                                         .padding(top = 16.dp, bottom = 8.dp).semantics { heading() })
                             }
                         }
@@ -260,7 +269,6 @@ fun LauncherScreen(
                             }
                         }
                     }
-                    // No artificial bottom runway after release.
                     item(key = "browse-tail", contentType = "spacer") {
                         Spacer(Modifier.fillMaxWidth().height(tailHeight).testTag("browse-tail"))
                     }

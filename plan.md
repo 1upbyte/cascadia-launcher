@@ -48,7 +48,7 @@ Core requirements:
 ### Home state
 
 - A transparent home window shows the system wallpaper.
-- Clock/date and pinned apps form a single vertical scrolling surface. Use a shared 28 dp left inset, 48 sp clock, 16 sp weekday/date, 48 dp app icons, 20 sp single-line labels, 20 dp icon-to-label gap, and at least 64 dp rows. Position the group responsively with an upper bias, moving it upward as favorites grow; overflow remains scrollable. Omit the brand banner, Favorites heading, and recurring browsing hint; access Settings through the Cascadia Settings shortcut in the app-list footer.
+- Clock/date and pinned apps form a single vertical scrolling surface. Use a shared 28 dp left inset, 48 sp clock, 16 sp weekday/date, 48 dp app icons, 20 sp single-line labels, 20 dp icon-to-label gap, and at least 64 dp rows. Keep the home header and first pinned app at a fixed height for the viewport, independent of favorite count; favorites grow downward and overflow remains scrollable. Align the first app in every alphabetical section with the first pinned row. Omit the brand banner, Favorites heading, and recurring browsing hint; access Settings through the Cascadia Settings shortcut in the app-list footer.
 - The all-apps list ends with app-style Cascadia Settings and GitHub shortcuts; GitHub opens `https://github.com/1upbyte/cascadia-launcher` through an installed browser/app. Footer shortcuts scroll with the list.
 - A compact alphabet rail remains at the right edge within safe drawing insets. Its gesture-exclusion region requests priority over system Back only on the rail (subject to Android's exclusion limits).
 - The all-apps list is absent from the visible layout until the rail is activated.
@@ -56,7 +56,7 @@ Core requirements:
 
 ### App-browsing state
 
-- Touch or drag along the alphabet rail reveals the selected letter's section below the pinned area; while holding, other letters' app sections are absent. Anchor every held category at the same height as the first rail letter. Near the end, clamp to the natural list bottom rather than adding blank space below the final apps. Clock/pins stay offscreen; oversized sections remain scrollable after release. Releasing restores the full alphabetical list with the heading and app rows at exactly their held positions, ready for free scrolling. The rail's letters remain available for continuous scrubbing.
+- Touch or drag along the alphabet rail reveals the selected letter's section; while holding, other letters' app sections are absent. Align every held category's first app with the first pinned app's fixed home position. Reserve bottom scroll space so final categories use that same height. Clock/pins stay offscreen; oversized sections remain scrollable after release. Releasing restores the full alphabetical list with the heading and app rows at exactly their held positions, ready for free scrolling. The rail's letters remain available for continuous scrubbing.
 - While dragging, bend the visible letters left into a broad Gaussian bell curve centered continuously on the finger's vertical position. Adjacent letters taper back toward the right edge; dragging left deepens and broadens the curve. Keep glyph size and vertical positions stable; animate press/release over 150 ms. Show the selected letter in a large circular preview beside the finger during rail gestures; hide it on release. Allow pulling the rail farther left while keeping the preview on screen. Provide a system CLOCK_TICK haptic when the letter changes, respecting Android settings.
 - Releasing the rail leaves the list open. Tapping a row launches that app.
 - Back hides the list and restores the prior home scroll position. Empty background accepts scrolling gestures and never dismisses the list.
@@ -366,3 +366,19 @@ No production signing key has been created, no public release has been uploaded,
 - Excluded pinned app IDs from alphabetical sections and rail occupancy. Follow-up: browsing now removes the clock, favorites, and home help rows entirely, so the all-apps view contains alphabetical app rows only (plus the existing footer); returning home restores the favorites view. Empty alphabetical browsing explains when every available app is already favorited.
 - Added top spacing before the first alphabetical category in the released full-list view, placing it about one third of the viewport down while preserving held-letter positioning.
 - Updated README feature notes. The optimized benchmark build succeeded, installed, and launched on Pixel 8; automated tests were not run.
+
+### Align browsing with the first favorite
+
+- Replaced the one-third-screen browsing spacer with shared home geometry so the first alphabetical app row aligns vertically with the first pinned row. Rail-held sections use the same alignment, retaining natural bottom clamping and release-position continuity.
+- Unit tests, debug lint, release privacy verification, and debug/release builds passed. The optimized benchmark build installed and cold-started successfully on Pixel 8, preserving favorites/settings. On-screen alignment verification remains pending; no instrumentation ran on the phone.
+
+### Preserve measured app position on rail release
+
+- Release now anchors the full list to a visible app row's measured pixel offset, avoiding position changes from recalculated section spacing. Added regression coverage across three app scales and first/middle/final sections; repaired an outdated rail-test callback setup.
+- Unit tests, lint, privacy verification, debug/release/optimized builds, and Android-test compilation passed. Installed the optimized update on Pixel 8 with data preserved. Connected UI tests were not run; hands-on release verification remains pending.
+
+### Fixed favorites start and matching alphabetical rows
+
+- Home header placement no longer depends on favorite count: favorites grow downward from a fixed first-row position. Browsing uses measured home-header and letter-heading heights to align app rows precisely. Final categories reserve bottom scroll space instead of shifting down; this supersedes the earlier natural-bottom clamping requirement.
+- Added UI regression coverage for adding favorites without moving the first row, plus held/released alignment for the first and final alphabetical sections. Updated home-spacing unit expectations for the fixed placement.
+- Unit tests, lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. Optimized update installed on Pixel 8 with favorites/settings preserved. Connected UI tests were not run; hands-on alignment verification remains pending.
