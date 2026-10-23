@@ -61,7 +61,6 @@ fun LauncherScreen(
     var homeOffset by rememberSaveable { mutableIntStateOf(0) }
     var selectedLetter by remember { mutableStateOf<String?>(null) }
     var anchoredLetter by rememberSaveable { mutableStateOf<String?>(null) }
-    var heldSectionTopPx by remember { mutableIntStateOf(0) }
     var settings by rememberSaveable { mutableStateOf(false) }
     var reorder by rememberSaveable { mutableStateOf(false) }
     var appOptions by remember { mutableStateOf<AppEntry?>(null) }
@@ -92,18 +91,6 @@ fun LauncherScreen(
         }
         anchoredLetter = if (feedback) letter else null
         selectedLetter = if (feedback) letter else null
-    }
-
-    fun releaseLetter() {
-        val letter = selectedLetter ?: return
-        selectedLetter = null
-        // Remove the temporary positioning spacer from the restored full list,
-        // then offset the section item to keep its heading and apps in place.
-        anchoredLetter = null
-        if (browsing) alphabeticalIndex.sectionRow(letter, pins.size, holding = false,
-            includeHomePrefix = false)?.let {
-            list.requestScrollToItem(it, -heldSectionTopPx)
-        }
     }
 
     fun returnHome() {
@@ -163,11 +150,36 @@ fun LauncherScreen(
             val remainingHeight = remainingSections.fold(footerHeight) { height, section ->
                 height + headingHeight + rowHeight * section.apps.size
             }
-            val heldTop = if (anchorSlot >= 0) browseSectionTop(
-                viewportHeight.value, alphabeticalIndex.sections.size,
-                with(density) { 19.sp.toDp().value }, remainingHeight.value, bottomInset = 192.dp.value,
-            ).dp else 0.dp
-            SideEffect { heldSectionTopPx = with(density) { heldTop.roundToPx() } }
+            fun sectionTop(letter: String): androidx.compose.ui.unit.Dp {
+                val slot = alphabeticalIndex.sections.indexOfFirst { it.letter == letter }
+                if (slot < 0) return 0.dp
+                val sectionsFromAnchor = alphabeticalIndex.sections.drop(slot)
+                val height = sectionsFromAnchor.fold(footerHeight) { total, section ->
+                    total + headingHeight + rowHeight * section.apps.size
+                }
+                return browseSectionTop(
+                    viewportHeight.value, alphabeticalIndex.sections.size,
+                    with(density) { 19.sp.toDp().value }, height.value, bottomInset = 192.dp.value,
+                ).dp
+            }
+            val heldTop = anchoredLetter?.let(::sectionTop) ?: 0.dp
+            fun releaseLetter() {
+                val letter = selectedLetter ?: return
+                selectedLetter = null
+                // Recompute from the current letter and layout immediately; a
+                // post-composition SideEffect can still hold the prior letter's top.
+                anchoredLetter = null
+                if (browsing) alphabeticalIndex.sectionRow(letter, pins.size, holding = false,
+                    includeHomePrefix = false)?.let {
+                    // The full-list layout adds a leading spacer to its first
+                    // section. Account for it so the heading stays at heldTop.
+                    val leadingSpace = if (letter == alphabeticalIndex.sections.firstOrNull()?.letter) {
+                        viewportHeight / 3
+                    } else 0.dp
+                    val offset = with(density) { (leadingSpace - sectionTop(letter)).roundToPx() }
+                    list.requestScrollToItem(it, offset)
+                }
+            }
             // While holding, reserve exactly the space occupied by later sections.
             // Release swaps this blank area for real rows without changing scroll bounds.
             val tailHeight = if (selectedLetter != null) {
@@ -254,16 +266,16 @@ fun LauncherScreen(
                     }
                 }
             }
+            AlphabetRail(
+                occupied = remember(alphabeticalIndex) { alphabeticalIndex.sections.map { it.letter }.toSet() },
+                selected = selectedLetter,
+                onSelect = { openApps(it, feedback = true) },
+                onReturnHome = ::returnHome,
+                onRelease = ::releaseLetter,
+                onAccessibleOpen = { openApps(alphabeticalIndex.sections.firstOrNull()?.letter ?: "A", feedback = false) },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(top = 16.dp, bottom = 192.dp),
+            )
         }
-        AlphabetRail(
-            occupied = remember(alphabeticalIndex) { alphabeticalIndex.sections.map { it.letter }.toSet() },
-            selected = selectedLetter,
-            onSelect = { openApps(it, feedback = true) },
-            onReturnHome = ::returnHome,
-            onRelease = ::releaseLetter,
-            onAccessibleOpen = { openApps(alphabeticalIndex.sections.firstOrNull()?.letter ?: "A", feedback = false) },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(top = 16.dp, bottom = 192.dp),
-        )
     }
 
     appOptions?.let { app ->
