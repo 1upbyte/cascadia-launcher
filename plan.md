@@ -382,3 +382,9 @@ No production signing key has been created, no public release has been uploaded,
 - Home header placement no longer depends on favorite count: favorites grow downward from a fixed first-row position. Browsing uses measured home-header and letter-heading heights to align app rows precisely. Final categories reserve bottom scroll space instead of shifting down; this supersedes the earlier natural-bottom clamping requirement.
 - Added UI regression coverage for adding favorites without moving the first row, plus held/released alignment for the first and final alphabetical sections. Updated home-spacing unit expectations for the fixed placement.
 - Unit tests, lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. Optimized update installed on Pixel 8 with favorites/settings preserved. Connected UI tests were not run; hands-on alignment verification remains pending.
+
+### Stable layout during alphabet release
+
+- Keep the complete lazy-list structure, item measurements, and bottom scroll space stable throughout rail gestures. Surrounding sections and the footer are hidden visually and from accessibility while holding; release reveals them without replacing rows or issuing a corrective scroll request. This removes the layout transition that could shift lower letters on release.
+- Expanded release regression coverage to the penultimate section and individual transition frames across app scales; updated launcher tests to use the favorites-star rail slots and current accessibility description.
+- Validation: all 32 unit tests, debug lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. After ADB access was approved, the optimized build installed and cold-started successfully on the connected Pixel 8, preserving favorites/settings. Connected tests and hands-on release-position verification remain pending.

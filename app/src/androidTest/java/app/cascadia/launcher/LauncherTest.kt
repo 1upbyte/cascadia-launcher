@@ -35,7 +35,7 @@ class LauncherTest {
     }
 
     private fun openApps() {
-        compose.onNodeWithContentDescription("Alphabet. Browse all apps")
+        compose.onNodeWithContentDescription("Alphabet and favorites shortcut")
             .performSemanticsAction(SemanticsActions.OnClick) { it() }
         compose.waitForIdle()
         assertMode("All apps")
@@ -91,9 +91,9 @@ class LauncherTest {
         val slot = sections.size / 2
         val target = sections[slot]
         val next = sections[slot + 1]
-        val rail = compose.onNodeWithContentDescription("Alphabet. Browse all apps")
+        val rail = compose.onNodeWithContentDescription("Alphabet and favorites shortcut")
         rail.performTouchInput {
-            down(Offset(center.x, height * (slot + 0.5f) / sections.size))
+            down(Offset(center.x, height * (slot + 1.5f) / (sections.size + 1)))
         }
         compose.waitForIdle()
         compose.onNodeWithText(target.apps.first().label).assertIsDisplayed()
@@ -158,7 +158,7 @@ class LauncherTest {
             for (scale in listOf(1f, 1.15f, 1.5f)) {
                 runBlocking { application.preferences.setAppScale(scale) }
                 compose.waitForIdle()
-                for (slot in listOf(0, sections.size / 2, sections.lastIndex)) {
+                for (slot in listOf(0, sections.size / 2, sections.lastIndex - 1, sections.lastIndex).distinct()) {
                     val target = sections[slot]
                     val rail = compose.onNodeWithContentDescription("Alphabet and favorites shortcut")
                     rail.performTouchInput {
@@ -169,10 +169,23 @@ class LauncherTest {
                     val app = compose.onNodeWithText(target.apps.first().label)
                     app.assertIsDisplayed()
                     val heldTop = app.fetchSemanticsNode().boundsInRoot.top
-                    rail.performTouchInput { up() }
+                    val heading = compose.onNodeWithTag("section-heading:${target.letter}")
+                    val heldHeadingTop = heading.fetchSemanticsNode().boundsInRoot.top
+                    compose.mainClock.autoAdvance = false
+                    try {
+                        rail.performTouchInput { up() }
+                        // Check the transition frames too: a jump can settle before idle.
+                        repeat(12) { frame ->
+                            compose.mainClock.advanceTimeByFrame()
+                            org.junit.Assert.assertEquals("${target.letter} at scale $scale, frame $frame",
+                                heldTop, app.fetchSemanticsNode().boundsInRoot.top, 1f)
+                            org.junit.Assert.assertEquals("Heading ${target.letter}, frame $frame",
+                                heldHeadingTop, heading.fetchSemanticsNode().boundsInRoot.top, 1f)
+                        }
+                    } finally {
+                        compose.mainClock.autoAdvance = true
+                    }
                     compose.waitForIdle()
-                    org.junit.Assert.assertEquals("${target.letter} at scale $scale",
-                        heldTop, app.fetchSemanticsNode().boundsInRoot.top, 1f)
                 }
             }
         } finally {
@@ -251,7 +264,7 @@ class LauncherTest {
     }
 
     @Test fun railDragLeavesListVisibleOnRelease() {
-        compose.onNodeWithContentDescription("Alphabet. Browse all apps").performTouchInput {
+        compose.onNodeWithContentDescription("Alphabet and favorites shortcut").performTouchInput {
             down(Offset(center.x, height * 0.1f))
             moveTo(Offset(center.x, height * 0.85f))
             up()
