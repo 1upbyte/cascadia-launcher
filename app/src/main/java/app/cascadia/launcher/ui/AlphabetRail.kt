@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.cascadia.launcher.core.AppIndex
 import app.cascadia.launcher.core.railCurveSpread
+import app.cascadia.launcher.core.RailSettings
 import app.cascadia.launcher.core.railCurveWeight
 
 @Composable
@@ -58,12 +59,13 @@ fun AlphabetRail(
     onRelease: () -> Unit,
     onAccessibleOpen: () -> Unit,
     modifier: Modifier = Modifier,
+    spacing: Float = RailSettings.DEFAULT_SPACING,
 ) {
     val letters = remember(occupied) { AppIndex.RAIL.filter { it in occupied } }
     if (letters.isEmpty()) return
     val slotCount = letters.size + 1
 
-    val slotHeight = with(LocalDensity.current) { 19.sp.toDp() }
+    val slotHeight = with(LocalDensity.current) { RailSettings.normalizeSpacing(spacing).sp.toDp() }
     var dragging by remember { mutableStateOf(false) }
     var finger by remember { mutableStateOf(Offset.Zero) }
     var activeLetter by remember { mutableStateOf<String?>(null) }

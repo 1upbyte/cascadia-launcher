@@ -61,7 +61,7 @@ Core requirements:
 - Releasing the rail leaves the list open. Tapping a row launches that app.
 - Back hides the list and restores the prior home scroll position. Empty background accepts scrolling gestures and never dismisses the list.
 - A new Home intent resets to the pinned-only state and scrolls to the top. Returning with Back from a launched app preserves the browsing state, so the user can continue choosing apps.
-- Hide letters without apps. Show only occupied sections in a compact rail anchored at the lower right with a 192 dp margin above the safe-area bottom and 19 sp slots (shrinking to fit on short displays). Letters use bundled OFL-licensed Nunito Sans regular at 16 sp, centered 14 dp from the right edge, with a subtle shadow instead of a pill backdrop. The invisible touch area extends 68 dp leftward to meet the app rows. Drag hit-testing uses exactly the visible letter slots. Nunito Sans also supplies the launcher typography. See `docs/typography-and-rail.md` for licensing/provenance and intentional differences from the reference.
+- Hide letters without apps. Show only occupied sections in a compact rail anchored at the lower right with a 192 dp margin above the safe-area bottom and 22 sp slots (shrinking to fit on short displays). Letters use bundled OFL-licensed Nunito Sans regular at 16 sp, centered 14 dp from the right edge, with a subtle shadow instead of a pill backdrop. The invisible touch area extends 68 dp leftward to meet the app rows. Drag hit-testing uses exactly the visible letter slots. Nunito Sans also supplies the launcher typography. See `docs/typography-and-rail.md` for licensing/provenance and intentional differences from the reference.
 - Treat rail dragging as one continuous gesture; do not launch an app on release from that gesture.
 
 Clock and pins scroll offscreen when navigating the alphabetical list. Background drags must scroll the list even when the gesture starts between rows or beside labels.
@@ -393,3 +393,14 @@ No production signing key has been created, no public release has been uploaded,
 
 - Inspected Niagara's APK: it excludes system Back from the alphabet edge on favorites and removes that exclusion in all-apps browsing. Initially matched that behavior, then removed exclusion on favorites too at the user's request. System Back is now available beside the rail on both screens; rail tapping and continuous scrubbing retain their existing touch area.
 - Updated rail regression coverage for edge availability, scrubbing, and the favorites shortcut. Unit tests, debug lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. Installed the optimized update on Pixel 8 with favorites/settings preserved. Connected UI tests were not run on the daily-use phone; hands-on gesture verification remains pending.
+
+### More space between rail letters
+
+- Increased rail slots from 19 sp to 22 sp, retaining 16 sp glyphs, the 192 dp bottom margin, and matching touch geometry. Short displays continue to constrain the rail to available space.
+- Validation: unit tests, debug lint, release privacy verification, and debug/release/optimized builds passed. With ADB access approved, the optimized update installed and opened successfully on Pixel 8, preserving favorites/settings. Connected tests were not run.
+
+### Adjustable alphabet rail
+
+- Added live Settings sliders for the rail's starting height (bottom margin, 0–384 dp in 8 dp steps) and letter spacing (16–32 sp in 1 sp steps), persisted locally on release. Existing layout remains the default: 192 dp bottom margin and 22 sp slots. Reset rail to defaults restores both values.
+- Height is constrained to leave rail space on short screens; letters and touch slots share the selected spacing. Glyph size remains 16 sp and app scale stays independent.
+- Validation: unit tests, debug lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. Added a UI regression for slider geometry, persistence across recreation, and reset; connected tests were skipped at the user's request (no emulator). Installed and opened the optimized update on Pixel 8, preserving favorites/settings.

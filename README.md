@@ -19,7 +19,7 @@ the agreed behavior, architecture, and remaining release work.
   browsing. Pressing **Home** resets to favorites.
 - Clock and favorites scroll offscreen when jumping to a letter.
 - App-list footer shortcuts for Cascadia Settings and the GitHub repository.
-- Settings for wallpaper selection, dimming, favorite ordering, Square/Squircle/Circle icon shapes (Squircle by default), and app scale (75–150%). Drag a reorder
+- Settings for wallpaper selection, dimming, favorite ordering, Square/Squircle/Circle icon shapes (Squircle by default), app scale (75–150%), and alphabet rail starting height and letter spacing. Rail defaults are 192 dp above the bottom edge and 22 sp between slots. Drag a reorder
   handle or use accessible Up/Down buttons.
 - No network permissions, accounts, analytics, ads, or Google Play services.
 

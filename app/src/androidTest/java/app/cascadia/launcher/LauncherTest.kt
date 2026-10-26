@@ -236,6 +236,57 @@ class LauncherTest {
         }
     }
 
+    @Test fun railSlidersChangeGeometryPersistAndReset() {
+        val original = runBlocking { application.preferences.preferences.first() }
+        try {
+            runBlocking {
+                application.preferences.setRailBottomMargin(192f)
+                application.preferences.setRailSpacing(22f)
+            }
+            compose.waitForIdle()
+            val rail = compose.onNodeWithContentDescription("Alphabet and favorites shortcut")
+            val before = rail.fetchSemanticsNode().boundsInRoot
+            openSettings()
+            compose.onNodeWithTag("rail-height-slider").performScrollTo()
+                .performSemanticsAction(SemanticsActions.SetProgress) { it(256f) }
+            compose.onNodeWithTag("rail-spacing-slider").performScrollTo()
+                .performSemanticsAction(SemanticsActions.SetProgress) { it(28f) }
+            compose.waitUntil(5_000) {
+                runBlocking {
+                    val saved = application.preferences.preferences.first()
+                    saved.railBottomMargin == 256f && saved.railSpacing == 28f
+                }
+            }
+            compose.activityRule.scenario.recreate()
+            compose.waitForIdle()
+            compose.onNodeWithText("Starting height · 256 dp").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Letter spacing · 28 sp").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Done").performScrollTo().performClick()
+            compose.waitForIdle()
+            val after = rail.fetchSemanticsNode().boundsInRoot
+            org.junit.Assert.assertEquals(before.bottom - 64f * compose.density.density, after.bottom, 1f)
+            org.junit.Assert.assertTrue(after.height > before.height)
+            openSettings()
+            compose.onNodeWithText("Reset rail to defaults").performScrollTo().performClick()
+            compose.waitUntil(5_000) {
+                runBlocking {
+                    val saved = application.preferences.preferences.first()
+                    saved.railBottomMargin == 192f && saved.railSpacing == 22f
+                }
+            }
+            compose.onNodeWithText("Done").performScrollTo().performClick()
+            compose.waitForIdle()
+            val reset = rail.fetchSemanticsNode().boundsInRoot
+            org.junit.Assert.assertEquals(before.top, reset.top, 1f)
+            org.junit.Assert.assertEquals(before.bottom, reset.bottom, 1f)
+        } finally {
+            runBlocking {
+                application.preferences.setRailBottomMargin(original.railBottomMargin)
+                application.preferences.setRailSpacing(original.railSpacing)
+            }
+        }
+    }
+
     @Test fun iconShapePersistsAcrossRecreation() {
         val original = runBlocking { application.preferences.preferences.first().iconShape }
         try {

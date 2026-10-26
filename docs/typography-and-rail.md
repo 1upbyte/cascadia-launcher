@@ -30,8 +30,8 @@ Copyright 2016 The Nunito Sans Project Authors
 
 Reference measurements: 16 sp regular text, 19 sp section spacing, a 64 dp pressed
 offset, 150 ms press/release transition, and Android `CLOCK_TICK` haptics. Cascadia
-uses these as visual/interaction targets, with its own spatial Gaussian and
-Compose animation. The bell's width increases with rail length and pull depth;
+uses 22 sp slots for more space between letters, retaining the other interaction
+targets with its own spatial Gaussian and Compose animation. The bell's width increases with rail length and pull depth;
 its center follows the finger continuously rather than snapping to a letter.
 Only horizontal translation is applied: glyph sizes and vertical slots remain
 stable. While a letter is held, only its app section is shown; release restores
@@ -48,6 +48,11 @@ with a 192 dp margin above the safe-area bottom, glyphs 14 dp from the right edg
 when pulling left, and a **48 dp circular selected-letter preview beside the finger**. Leftward pull extends up to 280 dp, bounded by available screen space. Unlike the
 reference's complete scrollbar UI, there is no special search/favorites handle
 or dynamic rail repositioning. A subtle text shadow replaces the pill backdrop.
+
+Settings exposes starting height as distance above the bottom edge (0–384 dp)
+and letter spacing (16–32 sp), with live updates and local persistence on release.
+Defaults retain the current 192 dp margin and 22 sp slots; Reset rail to defaults
+restores both. Available screen height constrains the rail on short displays.
 
 ## Overall layout
 

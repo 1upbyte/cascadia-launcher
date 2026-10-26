@@ -7,6 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import app.cascadia.launcher.core.IconShape
 import app.cascadia.launcher.core.AppScale
+import app.cascadia.launcher.core.RailSettings
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -26,6 +27,12 @@ fun SettingsDialog(
     appScale: Float,
     onAppScale: (Float) -> Unit,
     onAppScaleFinished: (Float) -> Unit,
+    railBottomMargin: Float,
+    onRailBottomMargin: (Float) -> Unit,
+    onRailBottomMarginFinished: (Float) -> Unit,
+    railSpacing: Float,
+    onRailSpacing: (Float) -> Unit,
+    onRailSpacingFinished: (Float) -> Unit,
     iconShape: IconShape,
     onIconShape: (IconShape) -> Unit,
     isDefaultHome: Boolean,
@@ -57,6 +64,21 @@ fun SettingsDialog(
                 Text("Resize app icons, labels, and spacing.", style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = { sliderScale = 1f; onAppScale(1f); onAppScaleFinished(1f) }) { Text("Reset to 100%") }
                 Spacer(Modifier.height(16.dp))
+                Text("Alphabet rail", style = MaterialTheme.typography.titleMedium)
+                RailSlider(label = "Starting height", value = railBottomMargin, unit = "dp",
+                    range = RailSettings.MIN_BOTTOM_MARGIN..RailSettings.MAX_BOTTOM_MARGIN, steps = 47,
+                    tag = "rail-height-slider", onChange = onRailBottomMargin, onFinished = onRailBottomMarginFinished)
+                Text("Distance above the bottom edge. Increase to move the rail up.", style = MaterialTheme.typography.bodySmall)
+                RailSlider(label = "Letter spacing", value = railSpacing, unit = "sp",
+                    range = RailSettings.MIN_SPACING..RailSettings.MAX_SPACING, steps = 15,
+                    tag = "rail-spacing-slider", onChange = onRailSpacing, onFinished = onRailSpacingFinished)
+                TextButton(onClick = {
+                    onRailBottomMargin(RailSettings.DEFAULT_BOTTOM_MARGIN)
+                    onRailBottomMarginFinished(RailSettings.DEFAULT_BOTTOM_MARGIN)
+                    onRailSpacing(RailSettings.DEFAULT_SPACING)
+                    onRailSpacingFinished(RailSettings.DEFAULT_SPACING)
+                }) { Text("Reset rail to defaults") }
+                Spacer(Modifier.height(16.dp))
                 Text("Icon shape", style = MaterialTheme.typography.titleMedium)
                 Column(Modifier.selectableGroup()) {
                     IconShape.entries.forEach { shape ->
@@ -87,4 +109,22 @@ fun SettingsDialog(
             }
         }
     }
+}
+
+@Composable
+private fun RailSlider(
+    label: String,
+    value: Float,
+    unit: String,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    tag: String,
+    onChange: (Float) -> Unit,
+    onFinished: (Float) -> Unit,
+) {
+    var localValue by remember(value) { mutableFloatStateOf(value) }
+    Text("$label · ${value.roundToInt()} $unit")
+    Slider(value = localValue, onValueChange = { localValue = it; onChange(it) },
+        onValueChangeFinished = { onFinished(localValue) }, valueRange = range, steps = steps,
+        modifier = Modifier.testTag(tag).semantics { contentDescription = label })
 }

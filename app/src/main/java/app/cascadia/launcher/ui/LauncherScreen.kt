@@ -51,6 +51,8 @@ fun LauncherScreen(
     val index by model.index.collectAsStateWithLifecycle()
     val preferences by model.preferences.collectAsStateWithLifecycle()
     var appScale by remember(preferences.appScale) { mutableFloatStateOf(preferences.appScale) }
+    var railBottomMargin by remember(preferences.railBottomMargin) { mutableFloatStateOf(preferences.railBottomMargin) }
+    var railSpacing by remember(preferences.railSpacing) { mutableFloatStateOf(preferences.railSpacing) }
     val appLayout = remember(appScale) { AppLayout(appScale) }
     val saveError by model.error.collectAsStateWithLifecycle()
     val pins = remember(preferences.pins, inventory.apps) { visiblePins(preferences.pins, inventory.apps) }
@@ -248,7 +250,9 @@ fun LauncherScreen(
                 onReturnHome = ::returnHome,
                 onRelease = { selectedLetter = null },
                 onAccessibleOpen = { openApps(alphabeticalIndex.sections.firstOrNull()?.letter ?: "A", feedback = false) },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(top = 16.dp, bottom = 192.dp),
+                spacing = railSpacing,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(top = 16.dp,
+                    bottom = railBottomMargin.dp.coerceAtMost((viewportHeight - 64.dp).coerceAtLeast(0.dp))),
             )
         }
     }
@@ -277,6 +281,12 @@ fun LauncherScreen(
             appScale = appScale,
             onAppScale = { appScale = it },
             onAppScaleFinished = model::setAppScale,
+            railBottomMargin = railBottomMargin,
+            onRailBottomMargin = { railBottomMargin = it },
+            onRailBottomMarginFinished = model::setRailBottomMargin,
+            railSpacing = railSpacing,
+            onRailSpacing = { railSpacing = it },
+            onRailSpacingFinished = model::setRailSpacing,
             iconShape = preferences.iconShape,
             onIconShape = model::setIconShape,
             isDefaultHome = isDefaultHome,
