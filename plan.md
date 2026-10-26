@@ -50,7 +50,7 @@ Core requirements:
 - A transparent home window shows the system wallpaper.
 - Clock/date and pinned apps form a single vertical scrolling surface. Use a shared 28 dp left inset, 48 sp clock, 16 sp weekday/date, 48 dp app icons, 20 sp single-line labels, 20 dp icon-to-label gap, and at least 64 dp rows. Keep the home header and first pinned app at a fixed height for the viewport, independent of favorite count; favorites grow downward and overflow remains scrollable. Align the first app in every alphabetical section with the first pinned row. Omit the brand banner, Favorites heading, and recurring browsing hint; access Settings through the Cascadia Settings shortcut in the app-list footer.
 - The all-apps list ends with app-style Cascadia Settings and GitHub shortcuts; GitHub opens `https://github.com/1upbyte/cascadia-launcher` through an installed browser/app. Footer shortcuts scroll with the list.
-- A compact alphabet rail remains at the right edge within safe drawing insets. Its gesture-exclusion region requests priority over system Back only on the rail (subject to Android's exclusion limits).
+- A compact alphabet rail remains at the right edge within safe drawing insets. Keep the system Back edge available on both favorites and browsing; rail taps and drags remain available through its wide touch area without system-gesture exclusion.
 - The all-apps list is absent from the visible layout until the rail is activated.
 - Tapping an app launches it; failures produce a non-disruptive message.
 
@@ -388,3 +388,8 @@ No production signing key has been created, no public release has been uploaded,
 - Keep the complete lazy-list structure, item measurements, and bottom scroll space stable throughout rail gestures. Surrounding sections and the footer are hidden visually and from accessibility while holding; release reveals them without replacing rows or issuing a corrective scroll request. This removes the layout transition that could shift lower letters on release.
 - Expanded release regression coverage to the penultimate section and individual transition frames across app scales; updated launcher tests to use the favorites-star rail slots and current accessibility description.
 - Validation: all 32 unit tests, debug lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. After ADB access was approved, the optimized build installed and cold-started successfully on the connected Pixel 8, preserving favorites/settings. Connected tests and hands-on release-position verification remain pending.
+
+### Back gestures from the alphabet edge
+
+- Inspected Niagara's APK: it excludes system Back from the alphabet edge on favorites and removes that exclusion in all-apps browsing. Initially matched that behavior, then removed exclusion on favorites too at the user's request. System Back is now available beside the rail on both screens; rail tapping and continuous scrubbing retain their existing touch area.
+- Updated rail regression coverage for edge availability, scrubbing, and the favorites shortcut. Unit tests, debug lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. Installed the optimized update on Pixel 8 with favorites/settings preserved. Connected UI tests were not run on the daily-use phone; hands-on gesture verification remains pending.

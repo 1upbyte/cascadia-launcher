@@ -83,3 +83,20 @@ edge midpoint, and control points sit 10% of the width/height from the corners.
 This matches the reference mask geometry at any icon size, replacing the earlier
 30%-corner rounded rectangle. The same outline clips regular app icons and
 shapes footer backgrounds. Square/Circle choices and saved preferences remain.
+
+## Back gestures at the alphabet edge
+
+Local inspection of the reference APK's gesture-exclusion manager found that
+alphabet exclusion rectangles are registered only in `HOME` (`favorites`), and
+cleared in `ALL` (`all_apps`). The relevant state gate is in the decoded
+`TCi1D4c11KijghM.InBLWr22CpY`; `VgNmRrRI7OfRSat383MKj` identifies those states.
+`M8R9Je4rNZrPTHVIZ6YAeTAkUfT` aggregates the rectangles and
+`xgUdrIK7jFWDXl8DfnKCy` applies them to Android. These are inspection references;
+no reference implementation is included in Cascadia.
+
+Cascadia initially followed that behavior. At the user's request, it now leaves
+the system Back edge available on favorites as well as browsing. The rail uses
+no system-gesture exclusion. Its wide touch area still handles taps and letter
+scrubbing, preserving the released list position. An inward edge swipe can invoke
+system Back at the rail's height on either screen. Back from browsing restores
+favorites; Back on favorites keeps the launcher open and scrolls to the top.

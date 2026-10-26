@@ -2,7 +2,6 @@ package app.cascadia.launcher.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
@@ -84,7 +83,8 @@ fun AlphabetRail(
         modifier = modifier.width(LauncherLayout.RailTouchWidth).height(slotHeight * slotCount)
             .onSizeChanged { railHeight = it.height.toFloat() }
             .onGloballyPositioned { railLeft = it.positionInRoot().x }
-            .systemGestureExclusion()
+            // Leave the system Back edge available on both favorites and browsing.
+            // Rail taps and drags can still start within the wide touch area.
             .semantics(mergeDescendants = true) {
                 contentDescription = "Alphabet and favorites shortcut"
                 onClick(label = "Open all apps") { onAccessibleOpen(); true }
