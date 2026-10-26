@@ -10,15 +10,6 @@ data class AppEntry(val id: String, val label: String)
 data class AppSection(val letter: String, val apps: List<AppEntry>)
 
 data class AppIndex(val sections: List<AppSection>) {
-    /** Returns the alphabetical sections without apps already shown as favorites. */
-    fun excluding(ids: Set<String>): AppIndex = AppIndex(
-        sections.mapNotNull { section ->
-            section.apps.filterNot { it.id in ids }
-                .takeIf { it.isNotEmpty() }
-                ?.let { AppSection(section.letter, it) }
-        },
-    )
-
     /** Absent letters resolve to the nearest occupied rail slot; ties go earlier. */
     fun nearestSection(letter: String): AppSection? {
         val position = RAIL.indexOf(letter).coerceAtLeast(0)

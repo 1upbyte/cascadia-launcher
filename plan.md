@@ -21,7 +21,7 @@ Core requirements:
 
 1. **Alphabet interaction:** Touching/dragging the rail opens the list; releasing keeps it visible. Empty space is part of the scrolling surface, not a dismiss target. Back returns to pins only.
 2. **One-page behavior:** Clock and pins scroll offscreen above the alphabetical list; they are not sticky. Selecting a letter scrolls to that section.
-3. **Pinned apps:** Manual order, with long-press pin/unpin. Confirmed ordering UI: a simple reorder screen with drag handles and accessible move actions.
+3. **Pinned apps:** Manual order, with long-press pin/unpin. Pinned apps also appear in their normal alphabetical sections and count toward rail occupancy. Confirmed ordering UI: a simple reorder screen with drag handles and accessible move actions.
 4. **Clock:** Digital plus date, system 12/24-hour format, no seconds; tap opens the device clock when available.
 5. **Wallpaper:** Display system wallpaper and provide a shortcut to the system wallpaper picker.
 6. **Distribution and privacy:** Eventual public release. No network permissions and no Google Play services dependency. All core functionality must work offline on Android devices without Google services.
@@ -404,3 +404,9 @@ No production signing key has been created, no public release has been uploaded,
 - Added live Settings sliders for the rail's starting height (bottom margin, 0–384 dp in 8 dp steps) and letter spacing (16–32 sp in 1 sp steps), persisted locally on release. Existing layout remains the default: 192 dp bottom margin and 22 sp slots. Reset rail to defaults restores both values.
 - Height is constrained to leave rail space on short screens; letters and touch slots share the selected spacing. Glyph size remains 16 sp and app scale stays independent.
 - Validation: unit tests, debug lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. Added a UI regression for slider geometry, persistence across recreation, and reset; connected tests were skipped at the user's request (no emulator). Installed and opened the optimized update on Pixel 8, preserving favorites/settings.
+
+### Include pinned apps in all apps
+
+- All apps now includes pinned apps in their normal alphabetical sections; rail letters include sections containing only pinned apps. This supersedes the earlier exclusion of favorites from browsing. Favorites keep their manual home ordering.
+- Updated existing UI regressions for the complete rail inventory and pin/unpin from all apps, including visibility in both browsing and home.
+- Validation: all 34 unit tests, debug lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. Connected UI tests were not run; this update has not been installed on the phone.

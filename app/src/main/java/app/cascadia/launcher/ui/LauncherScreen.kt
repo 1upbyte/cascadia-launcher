@@ -56,7 +56,6 @@ fun LauncherScreen(
     val appLayout = remember(appScale) { AppLayout(appScale) }
     val saveError by model.error.collectAsStateWithLifecycle()
     val pins = remember(preferences.pins, inventory.apps) { visiblePins(preferences.pins, inventory.apps) }
-    val alphabeticalIndex = remember(index, preferences.pins) { index.excluding(preferences.pins.toSet()) }
     val list = rememberLazyListState()
     var browsing by rememberSaveable { mutableStateOf(false) }
     var homeIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -68,7 +67,7 @@ fun LauncherScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
-    val sections = alphabeticalIndex.sections
+    val sections = index.sections
 
     fun message(text: String) { Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
     fun openApps(letter: String, feedback: Boolean, scrollOffset: Int = 0) {
@@ -80,7 +79,7 @@ fun LauncherScreen(
         if (selectedLetter != letter || !feedback) {
             // Position the selected section in the same remeasure as its reveal.
             // Releasing the rail never changes the scroll request.
-            alphabeticalIndex.sectionRow(letter, pins.size, holding = false,
+            index.sectionRow(letter, pins.size, holding = false,
                 includeHomePrefix = false)?.let {
                 list.requestScrollToItem(it, scrollOffset)
             }
@@ -216,8 +215,8 @@ fun LauncherScreen(
                             }
                         }
                     }
-                    if (alphabeticalIndex.sections.isEmpty() && !inventory.loading) {
-                        item(key = "empty") { Text("No other launchable apps are available.") }
+                    if (sections.isEmpty() && !inventory.loading) {
+                        item(key = "empty") { Text("No launchable apps are available.") }
                     }
                     item(key = "launcher-footer", contentType = "footer") {
                         RailContent(visible = selectedLetter == null) {
@@ -240,7 +239,7 @@ fun LauncherScreen(
                 }
             }
             AlphabetRail(
-                occupied = remember(alphabeticalIndex) { alphabeticalIndex.sections.map { it.letter }.toSet() },
+                occupied = remember(index) { sections.map { it.letter }.toSet() },
                 selected = selectedLetter,
                 onSelect = { letter ->
                     val offset = if (letter == sections.firstOrNull()?.letter) 0
@@ -249,7 +248,7 @@ fun LauncherScreen(
                 },
                 onReturnHome = ::returnHome,
                 onRelease = { selectedLetter = null },
-                onAccessibleOpen = { openApps(alphabeticalIndex.sections.firstOrNull()?.letter ?: "A", feedback = false) },
+                onAccessibleOpen = { openApps(sections.firstOrNull()?.letter ?: "A", feedback = false) },
                 spacing = railSpacing,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(top = 16.dp,
                     bottom = railBottomMargin.dp.coerceAtMost((viewportHeight - 64.dp).coerceAtLeast(0.dp))),

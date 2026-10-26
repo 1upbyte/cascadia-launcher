@@ -132,8 +132,7 @@ class LauncherTest {
             org.junit.Assert.assertEquals(favoriteTop,
                 compose.onNodeWithText(favorite.label).fetchSemanticsNode().boundsInRoot.top, 1f)
         }
-        val pinnedIds = runBlocking { application.preferences.preferences.first().pins.toSet() }
-        val sections = AppIndex.build(apps).excluding(pinnedIds).sections
+        val sections = AppIndex.build(apps).sections
         for (slot in listOf(0, sections.lastIndex).distinct()) {
             val rail = compose.onNodeWithContentDescription("Alphabet and favorites shortcut")
             rail.performTouchInput {
@@ -331,10 +330,23 @@ class LauncherTest {
         compose.onNodeWithText("Pin to favorites").performClick()
         compose.waitUntil(5_000) { runBlocking { app.id in application.preferences.preferences.first().pins } }
         compose.waitForIdle()
+        assertMode("All apps")
+        compose.onAllNodesWithText(app.label).assertCountEquals(1)
+        compose.onNodeWithText(app.label).assertIsDisplayed()
+        compose.onNodeWithTag("home-clock").assertDoesNotExist()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+        assertMode("Favorites")
+        compose.onNodeWithText(app.label).assertIsDisplayed()
+        openApps()
         compose.onNodeWithText(app.label).assertIsDisplayed().performTouchInput { longClick() }
         compose.onNodeWithText("Unpin from favorites").performClick()
         compose.waitUntil(5_000) { runBlocking { app.id !in application.preferences.preferences.first().pins } }
+        compose.waitForIdle()
+        compose.onNodeWithText(app.label).assertIsDisplayed()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+        compose.onNodeWithText(app.label).assertDoesNotExist()
     }
 
     @Test fun clockTapOpensExternalClockWithoutAlarmPermission() {

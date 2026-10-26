@@ -14,7 +14,7 @@ the agreed behavior, architecture, and remaining release work.
 - Digital clock/date using the device's time format; tap to open the clock.
 - Manually ordered favorites; long-press any app to pin/unpin or open app info.
 - Right-edge A–Z / # rail: touch or drag to reveal and navigate all apps.
-- Favorited apps are omitted from the alphabetical list, so each app appears once.
+- Pinned apps also appear in their normal alphabetical sections in all apps.
 - The list stays open after release. Background drags scroll; **Back** closes
   browsing. Pressing **Home** resets to favorites.
 - Clock and favorites scroll offscreen when jumping to a letter.
