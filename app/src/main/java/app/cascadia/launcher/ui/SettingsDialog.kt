@@ -39,7 +39,6 @@ fun SettingsDialog(
     onChooseHome: () -> Unit,
     onWallpaper: () -> Unit,
     onScrim: (Float) -> Unit,
-    onReorder: () -> Unit,
     onRefresh: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -53,7 +52,6 @@ fun SettingsDialog(
                 TextButton(onClick = onChooseHome) {
                     Text(if (isDefaultHome) "Default home settings" else "Set Cascadia as default home")
                 }
-                TextButton(onClick = onReorder) { Text("Reorder favorites") }
                 TextButton(onClick = onWallpaper) { Text("Change system wallpaper") }
                 Spacer(Modifier.height(16.dp))
                 Text("App scale · ${(appScale * 100).roundToInt()}%", style = MaterialTheme.typography.titleMedium)

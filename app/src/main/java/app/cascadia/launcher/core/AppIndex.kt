@@ -52,3 +52,12 @@ fun movePin(ids: List<String>, id: String, delta: Int): List<String> {
     val to = (from + delta).coerceIn(ids.indices)
     return ids.toMutableList().apply { add(to, removeAt(from)) }
 }
+
+/** Replace visible slots while preserving unavailable pins and newly added favorites. */
+fun reorderPins(ids: List<String>, ordered: List<String>): List<String> {
+    val existing = ids.toSet()
+    val replacements = ordered.distinct().filter { it in existing }
+    val moved = replacements.toSet()
+    val iterator = replacements.iterator()
+    return ids.map { if (it in moved) iterator.next() else it }
+}

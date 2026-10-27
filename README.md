@@ -13,14 +13,15 @@ the agreed behavior, architecture, and remaining release work.
 - System wallpaper behind a single vertical scrolling surface.
 - Digital clock/date using the device's time format; tap to open the clock.
 - Manually ordered favorites; long-press any app to pin/unpin or open app info.
+- Long-press a favorite and choose **Arrange favorites** to reorder directly on
+  home. Drag a handle, or tap it for Move up/Move down buttons; tap **Done** to finish.
 - Right-edge A–Z / # rail: touch or drag to reveal and navigate all apps.
 - Pinned apps also appear in their normal alphabetical sections in all apps.
 - The list stays open after release. Background drags scroll; **Back** closes
   browsing. Pressing **Home** resets to favorites.
 - Clock and favorites scroll offscreen when jumping to a letter.
 - App-list footer shortcuts for Cascadia Settings and the GitHub repository.
-- Settings for wallpaper selection, dimming, favorite ordering, Square/Squircle/Circle icon shapes (Squircle by default), app scale (75–150%), and alphabet rail starting height and letter spacing. Rail defaults are 192 dp above the bottom edge and 22 sp between slots. Drag a reorder
-  handle or use accessible Up/Down buttons.
+- Settings for wallpaper selection, dimming, Square/Squircle/Circle icon shapes (Squircle by default), app scale (75–150%), and alphabet rail starting height and letter spacing. Rail defaults are 192 dp above the bottom edge and 22 sp between slots.
 - No network permissions, accounts, analytics, ads, or Google Play services.
 
 Only launchable activities in the current user are shown. Latin accents fold to
@@ -81,7 +82,9 @@ adb shell am start -n app.cascadia.launcher/.LauncherActivity
 
 4. Tap **Set as default home** and approve Android's Home selection dialog.
 5. Touch the alphabet. Long-press an app and choose **Pin to favorites**.
-6. Open **Settings → Reorder favorites** to set your preferred order.
+6. Long-press a favorite → **Arrange favorites**. Drag its handle to move it;
+   tap a handle for move buttons. Changes save when dropped or moved. Tap **Done**,
+   press Back/Home, or activate the alphabet rail to finish arranging.
 
 No runtime permission prompts should be necessary. Wallpaper selection is
 delegated to the system. Missing clock/wallpaper handlers show a message rather
@@ -137,12 +140,11 @@ Keep the stock launcher installed as a fallback during development.
 ```sh
 ./gradlew testDebugUnitTest                 # indexing, identities, pin ordering
 ./gradlew lintDebug verifyReleasePrivacy   # lint + merged manifest/dependency audit
-./gradlew connectedDebugAndroidTest        # requires an unlocked test device
 ```
 
-**Use a dedicated emulator for instrumentation:** tests clear Cascadia favorites
-in their setup. Do not run them against your daily-use installation without
-backing up your desired pin order.
+Do not start emulators or run emulator tests unless explicitly requested.
+Connected UI tests clear Cascadia favorites in their setup; keep them out of
+the normal build/install workflow.
 
 `verifyReleasePrivacy` checks the merged release manifest for INTERNET and
 ACCESS_NETWORK_STATE and checks runtime dependencies for Google Play services

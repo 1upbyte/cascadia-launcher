@@ -5,6 +5,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AppIndexTest {
+    @Test fun reorderingVisiblePinsPreservesUnavailableAndNewFavorites() {
+        assertEquals(listOf("c", "missing", "a", "b", "new"),
+            reorderPins(listOf("a", "missing", "b", "c", "new"), listOf("c", "a", "b")))
+    }
+
+    @Test fun reorderingIgnoresRemovedAndDuplicateFavorites() {
+        assertEquals(listOf("b", "a"), reorderPins(listOf("a", "b"), listOf("b", "gone", "b", "a")))
+        assertEquals(listOf("a", "b"), reorderPins(listOf("a", "b"), emptyList()))
+        assertEquals(emptyList<String>(), reorderPins(emptyList(), listOf("gone")))
+    }
+
     @Test fun emptyInventoryHasNoSections() {
         assertTrue(AppIndex.build(emptyList()).sections.isEmpty())
         assertNull(AppIndex.build(emptyList()).nearestSection("A"))

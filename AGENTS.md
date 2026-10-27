@@ -15,7 +15,7 @@ requirements. Read `README.md` for build/install/testing instructions.
 
 ## Validation
 - `./gradlew testDebugUnitTest lintDebug verifyReleasePrivacy assembleDebug assembleRelease`
-- `./gradlew connectedDebugAndroidTest` on a **dedicated emulator**; tests reset pins.
+- Do not start emulators or run emulator tests unless the user explicitly requests them.
 - Do not claim physical-device performance based on debug builds/emulators.
 - Do not commit machine-specific SDK paths, generated build outputs, or signing keys.
 - Update the implementation status in `plan.md` after meaningful milestones.

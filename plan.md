@@ -21,7 +21,7 @@ Core requirements:
 
 1. **Alphabet interaction:** Touching/dragging the rail opens the list; releasing keeps it visible. Empty space is part of the scrolling surface, not a dismiss target. Back returns to pins only.
 2. **One-page behavior:** Clock and pins scroll offscreen above the alphabetical list; they are not sticky. Selecting a letter scrolls to that section.
-3. **Pinned apps:** Manual order, with long-press pin/unpin. Pinned apps also appear in their normal alphabetical sections and count toward rail occupancy. Confirmed ordering UI: a simple reorder screen with drag handles and accessible move actions.
+3. **Pinned apps:** Manual order, with long-press pin/unpin. Pinned apps also appear in their normal alphabetical sections and count toward rail occupancy. Long-press a favorite → Arrange favorites activates inline home editing with drag handles, animated movement, pickup haptics, edge scrolling, and accessible move actions/buttons. Tapping a handle opens Move up/Move down buttons. Done, Back, Home, or alphabet navigation ends editing. Save each drop/button move; canceling a drag restores its previous order. No reorder entry in Settings or separate reorder dialog.
 4. **Clock:** Digital plus date, system 12/24-hour format, no seconds; tap opens the device clock when available.
 5. **Wallpaper:** Display system wallpaper and provide a shortcut to the system wallpaper picker.
 6. **Distribution and privacy:** Eventual public release. No network permissions and no Google Play services dependency. All core functionality must work offline on Android devices without Google services.
@@ -32,7 +32,8 @@ Core requirements:
 
 ### Validation follow-ups
 
-- Add an older/modest device or representative emulator configuration for compatibility coverage; Pixel 8 alone is not a low-end performance baseline.
+- Add an older/modest device for compatibility coverage; Pixel 8 alone is not a low-end performance baseline.
+- Do not start emulators or run emulator tests unless explicitly requested by the user. Routine validation uses unit tests, lint, privacy checks, and builds.
 - Verify Android 17 SDK/toolchain availability and compatibility when configuring the project.
 
 ### Can be decided later
@@ -172,7 +173,7 @@ Acceptance: content remains legible and all apps remain reachable on supported p
 - Benchmark startup and scrolling on the target device; fix measured bottlenecks.
 - Add tests, baseline profile, release build configuration, and installation documentation.
 - Review public-distribution requirements, signing/key management, dependency licenses, and privacy disclosures.
-- Verify no network permissions in the merged release manifest and no Google Play services dependencies; test core flows on an AOSP emulator without Google services.
+- Verify no network permissions in the merged release manifest and no Google Play services dependencies; core functionality must work on devices without Google services.
 
 Acceptance: measured performance meets the agreed targets and the launcher is reliable enough for daily use.
 
@@ -196,7 +197,6 @@ Already observed locally:
 - `JAVA_HOME`, `ANDROID_HOME`, and `ANDROID_SDK_ROOT` are unset.
 - SDK configured through ignored `local.properties` at `~/Library/Android/sdk`.
 - SDK platform 36, build-tools 36.0.0, platform-tools, and emulator installed. AGP also provisioned build-tools 35.0.0 during initial setup.
-- A Google-free AOSP Android 16 / ARM64 emulator is available as `Cascadia_AOSP_36`.
 - No physical phone was connected during implementation.
 
 ## Implementation status
@@ -206,7 +206,7 @@ Already observed locally:
 - Gradle wrapper with distribution checksum, Kotlin/Compose project, adaptive icon, HOME activity and default-home role flow.
 - System wallpaper display/picker shortcut, digital clock/date/clock-app action, and local dimming control. Clock launch resolves the clock's public launcher activity rather than requesting SET_ALARM, which some clocks require even to handle SHOW_ALARMS.
 - Current-user launchable app discovery, package/locale change refresh, asynchronous bounded icon cache, locale-aware label sorting, stable component identities, and app launch/app-info actions.
-- Persistent manual favorites, long-press pin/unpin, reorder screen with drag handles and accessible Up/Down actions.
+- Persistent manual favorites, long-press pin/unpin, and inline arrangement with drag handles and accessible Move up/Move down actions/buttons (supersedes the original reorder screen).
 - Alphabet taps/drags, selected-letter feedback/haptics, nearest occupied section selection, one lazy scrolling surface, non-sticky clock/pins, and Back/Home handling.
 - TalkBack semantic action to open all apps without precise rail dragging; app rows expose launch/long-press actions.
 - Local DataStore persistence with corruption recovery. Cloud backup/device transfer excluded. Downloadable emoji initialization disabled.
@@ -410,3 +410,9 @@ No production signing key has been created, no public release has been uploaded,
 - All apps now includes pinned apps in their normal alphabetical sections; rail letters include sections containing only pinned apps. This supersedes the earlier exclusion of favorites from browsing. Favorites keep their manual home ordering.
 - Updated existing UI regressions for the complete rail inventory and pin/unpin from all apps, including visibility in both browsing and home.
 - Validation: all 34 unit tests, debug lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. Connected UI tests were not run; this update has not been installed on the phone.
+
+### Inline favorites arrangement
+
+- Long-press a pinned app → Arrange favorites now edits the home list directly, with drag handles, lifted-row feedback, animated placement, edge scrolling, and handle menus/accessibility actions for Move up/Move down. Done, Back, Home, and alphabet browsing finish arrangement. Drops and button moves save locally; canceled drags restore their starting order. Removed the Settings reorder entry and separate dialog.
+- Unit tests, debug lint, release privacy verification, debug/release/optimized builds, and Android-test compilation passed. The optimized development-signed build installed and cold-started successfully on Pixel 8, preserving app data.
+- Initial targeted emulator run: persistence passed; accessibility/exit and drag-cancellation scenarios failed. Test follow-up remains incomplete. Emulator work stopped and the emulator was shut down at the user's request. Removed emulator-testing requirements from project instructions and documentation; emulator use now requires an explicit request.

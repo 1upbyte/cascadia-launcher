@@ -42,6 +42,8 @@ fun AppRow(
     layout: AppLayout,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val pixels = with(LocalDensity.current) { (LauncherLayout.IconSize * AppScale.MAX).roundToPx() }
     val cached = remember(app.id, revision, pixels) {
@@ -51,8 +53,9 @@ fun AppRow(
         value = repository.icon(app.id, pixels, revision)?.asImageBitmap()
     }
     Row(
-        Modifier.fillMaxWidth().heightIn(min = layout.rowMinHeight)
+        modifier.fillMaxWidth().heightIn(min = layout.rowMinHeight)
             .combinedClickable(
+                enabled = enabled,
                 role = Role.Button,
                 onClickLabel = "Open ${app.label}",
                 onLongClickLabel = "Options for ${app.label}",

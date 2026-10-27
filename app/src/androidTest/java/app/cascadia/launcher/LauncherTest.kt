@@ -396,16 +396,19 @@ class LauncherTest {
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText(apps[1].label).fetchSemanticsNodes().isNotEmpty()
         }
-        openSettings()
-        compose.onNodeWithText("Reorder favorites").performClick()
-        compose.onAllNodesWithText("Up")[1].performClick()
+        compose.onNodeWithTag("favorite-handle:${apps[0].id}").assertDoesNotExist()
+        compose.onNodeWithText(apps[0].label).performTouchInput { longClick() }
+        compose.onNodeWithText("Arrange favorites").performClick()
+        assertMode("Favorites")
+        compose.onNodeWithTag("home-clock").assertIsDisplayed()
+        compose.onNodeWithTag("favorite-handle:${apps[1].id}").performClick()
+        compose.onNodeWithText("Move up").performClick()
         compose.waitUntil(5_000) {
             runBlocking { application.preferences.preferences.first().pins.firstOrNull() == apps[1].id }
         }
         compose.onNodeWithText("Done").performClick()
         compose.waitForIdle()
-        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.waitForIdle()
+        compose.onNodeWithTag("favorite-handle:${apps[0].id}").assertDoesNotExist()
         compose.activityRule.scenario.recreate()
         compose.waitForIdle()
         assertMode("Favorites")
@@ -413,6 +416,84 @@ class LauncherTest {
             listOf(apps[1].id, apps[0].id),
             runBlocking { application.preferences.preferences.first().pins },
         )
+        val first = compose.onNodeWithTag("favorite:${apps[1].id}").fetchSemanticsNode().boundsInRoot
+        val second = compose.onNodeWithTag("favorite:${apps[0].id}").fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(first.top < second.top)
+        openSettings()
+        compose.onNodeWithText("Reorder favorites").assertDoesNotExist()
+    }
+
+    @Test fun dragFavoritesBothWaysAndCancelWithoutSaving() {
+        val apps = AppIndex.build(application.apps.inventory.value.apps).sections.flatMap { it.apps }.take(3)
+        org.junit.Assert.assertEquals(3, apps.size)
+        runBlocking {
+            application.preferences.setAppScale(1.25f)
+            apps.forEach { application.preferences.togglePin(it.id) }
+        }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(apps[2].label).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(apps[0].label).performTouchInput { longClick() }
+        compose.onNodeWithText("Arrange favorites").performClick()
+        val rowHeight = compose.onNodeWithTag("favorite:${apps[0].id}").fetchSemanticsNode().boundsInRoot.height
+        val handle = compose.onNodeWithTag("favorite-handle:${apps[0].id}")
+        handle.performTouchInput { swipe(center, center + Offset(0f, rowHeight * 1.25f), 600) }
+        compose.waitUntil(5_000) {
+            runBlocking { application.preferences.preferences.first().pins == listOf(apps[1].id, apps[0].id, apps[2].id) }
+        }
+        handle.performTouchInput { swipe(center, center - Offset(0f, rowHeight * 1.25f), 600) }
+        compose.waitUntil(5_000) {
+            runBlocking { application.preferences.preferences.first().pins == apps.map { it.id } }
+        }
+        handle.performTouchInput {
+            down(center)
+            moveTo(center + Offset(0f, rowHeight * 1.25f), 600)
+            cancel()
+        }
+        compose.waitForIdle()
+        org.junit.Assert.assertEquals(apps.map { it.id }, runBlocking { application.preferences.preferences.first().pins })
+        org.junit.Assert.assertTrue(
+            compose.onNodeWithTag("favorite:${apps[0].id}").fetchSemanticsNode().boundsInRoot.top <
+                compose.onNodeWithTag("favorite:${apps[1].id}").fetchSemanticsNode().boundsInRoot.top,
+        )
+        runBlocking { application.preferences.setAppScale(1f) }
+    }
+
+    @Test fun arrangementHasAccessibleActionsAndExitsWithBackHomeAndRail() {
+        val apps = AppIndex.build(application.apps.inventory.value.apps).sections.flatMap { it.apps }.take(2)
+        runBlocking { apps.forEach { application.preferences.togglePin(it.id) } }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(apps[1].label).fetchSemanticsNodes().isNotEmpty() }
+        fun arrange() {
+            compose.onNodeWithText(apps[0].label).performTouchInput { longClick() }
+            compose.onNodeWithText("Arrange favorites").performClick()
+            compose.onNodeWithTag("arrange-favorites-controls").assertIsDisplayed()
+        }
+        arrange()
+        val actions = compose.onNodeWithTag("favorite-handle:${apps[1].id}")
+            .fetchSemanticsNode().config[SemanticsActions.CustomActions]
+        compose.runOnIdle { org.junit.Assert.assertTrue(actions.first { it.label == "Move up" }.action()) }
+        compose.waitUntil(5_000) {
+            runBlocking { application.preferences.preferences.first().pins.first() == apps[1].id }
+        }
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("arrange-favorites-controls").assertDoesNotExist()
+        assertMode("Favorites")
+        arrange()
+        compose.runOnUiThread {
+            InstrumentationRegistry.getInstrumentation().callActivityOnNewIntent(
+                compose.activity, Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+            )
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("arrange-favorites-controls").assertDoesNotExist()
+        arrange()
+        openApps()
+        compose.onNodeWithTag("arrange-favorites-controls").assertDoesNotExist()
+        // A pinned app's menu in all apps also provides an entry back to arranging home.
+        compose.onNodeWithTag("app-list").performScrollToNode(hasText(apps[0].label))
+        compose.onNodeWithText(apps[0].label).performTouchInput { longClick() }
+        compose.onNodeWithText("Arrange favorites").performClick()
+        assertMode("Favorites")
+        compose.onNodeWithTag("arrange-favorites-controls").assertIsDisplayed()
     }
 
     @Test fun homeIntentClosesBrowser() {

@@ -17,7 +17,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +30,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.cascadia.launcher.R
@@ -68,9 +71,34 @@ fun LauncherScreen(
     val context = LocalContext.current
     val view = LocalView.current
     val sections = index.sections
+    val saveOrder by rememberUpdatedState(model::reorderPins)
+    val arrangement = remember(list, view) {
+        FavoriteArrangement(list, save = { saveOrder(it) },
+            pickup = { view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS) })
+    }
+    LaunchedEffect(pins, reorder) { arrangement.sync(pins, reorder) }
+    val density = LocalDensity.current
+    LaunchedEffect(arrangement.draggedId) {
+        if (arrangement.draggedId != null) {
+            val edge = with(density) { 72.dp.toPx() }
+            val speed = with(density) { 720.dp.toPx() }
+            var previous = withFrameNanos { it }
+            while (arrangement.draggedId != null) {
+                val now = withFrameNanos { it }
+                arrangement.scrollAtEdge(edge, speed, ((now - previous) / 1_000_000_000f).coerceAtMost(0.05f))
+                previous = now
+            }
+        }
+    }
+
+    fun finishArrangement() {
+        arrangement.finish()
+        reorder = false
+    }
 
     fun message(text: String) { Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
     fun openApps(letter: String, feedback: Boolean, scrollOffset: Int = 0) {
+        finishArrangement()
         if (!browsing) {
             homeIndex = list.firstVisibleItemIndex
             homeOffset = list.firstVisibleItemScrollOffset
@@ -93,6 +121,7 @@ fun LauncherScreen(
     }
 
     fun returnHome() {
+        finishArrangement()
         browsing = false
         selectedLetter = null
         scope.launch { list.scrollToItem(0) }
@@ -103,7 +132,7 @@ fun LauncherScreen(
             browsing = false
             selectedLetter = null
             settings = false
-            reorder = false
+            finishArrangement()
             appOptions = null
             list.scrollToItem(0)
         }
@@ -117,7 +146,7 @@ fun LauncherScreen(
         when {
             appOptions != null -> appOptions = null
             settings -> settings = false
-            reorder -> reorder = false
+            reorder -> finishArrangement()
             browsing -> {
                 browsing = false
                 selectedLetter = null
@@ -174,10 +203,29 @@ fun LauncherScreen(
                             Spacer(Modifier.height(LauncherLayout.ClockFavoritesGap))
                         }
                     }
-                    items(pins, key = { "pin:${it.id}" }, contentType = { "app" }) { app ->
-                        AppRow(app, model.apps, inventory.revision, preferences.iconShape, appLayout,
-                            onClick = { if (!model.apps.launch(app.id)) message("This app is no longer available.") },
-                            onLongClick = { appOptions = app })
+                    items(if (reorder) arrangement.ordered else pins,
+                        key = { "pin:${it.id}" }, contentType = { "app" }) { app ->
+                        val dragging = arrangement.draggedId == app.id
+                        Row(
+                            Modifier.testTag("favorite:${app.id}")
+                                .animateItem(placementSpec = if (dragging) null else androidx.compose.animation.core.spring())
+                                .zIndex(if (dragging) 1f else 0f)
+                                .graphicsLayer {
+                                    translationY = arrangement.translation(app.id)
+                                    scaleX = if (dragging) 1.03f else 1f
+                                    scaleY = if (dragging) 1.03f else 1f
+                                }
+                                .shadow(if (dragging) 8.dp else 0.dp, MaterialTheme.shapes.medium)
+                                .background(if (dragging) MaterialTheme.colorScheme.surface else Color.Transparent,
+                                    MaterialTheme.shapes.medium),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AppRow(app, model.apps, inventory.revision, preferences.iconShape, appLayout,
+                                onClick = { if (!model.apps.launch(app.id)) message("This app is no longer available.") },
+                                onLongClick = { appOptions = app },
+                                modifier = Modifier.weight(1f), enabled = !reorder)
+                            if (reorder) FavoriteDragHandle(app, arrangement)
+                        }
                     }
                     item(key = "home-help", contentType = "help") {
                         Column(Modifier.padding(top = if (pins.isEmpty() || inventory.loading || inventory.error != null) 16.dp else 0.dp,
@@ -253,6 +301,19 @@ fun LauncherScreen(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(top = 16.dp,
                     bottom = railBottomMargin.dp.coerceAtMost((viewportHeight - 64.dp).coerceAtLeast(0.dp))),
             )
+            if (reorder) {
+                Surface(
+                    modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = 20.dp, vertical = 12.dp)
+                        .testTag("arrange-favorites-controls"),
+                    shape = MaterialTheme.shapes.large,
+                    tonalElevation = 3.dp,
+                ) {
+                    Row(Modifier.padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Arrange favorites", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                        TextButton(onClick = ::finishArrangement) { Text("Done") }
+                    }
+                }
+            }
         }
     }
 
@@ -262,6 +323,16 @@ fun LauncherScreen(
             title = { Text(app.label) },
             text = {
                 Column {
+                    if (app.id in preferences.pins) {
+                        TextButton(onClick = {
+                            appOptions = null
+                            browsing = false
+                            selectedLetter = null
+                            arrangement.sync(pins, true)
+                            reorder = true
+                            list.requestScrollToItem(0)
+                        }) { Text("Arrange favorites") }
+                    }
                     TextButton(onClick = { model.togglePin(app.id); appOptions = null }) {
                         Text(if (app.id in preferences.pins) "Unpin from favorites" else "Pin to favorites")
                     }
@@ -292,13 +363,9 @@ fun LauncherScreen(
             onChooseHome = onChooseHome,
             onWallpaper = onWallpaper,
             onScrim = model::setScrim,
-            onReorder = { settings = false; reorder = true },
             onRefresh = { model.apps.refresh(); message("Refreshing apps") },
             onDismiss = { settings = false },
         )
-    }
-    if (reorder) {
-        ReorderDialog(pins, onMove = model::movePin, onUnpin = model::togglePin, onDismiss = { reorder = false })
     }
 }
 

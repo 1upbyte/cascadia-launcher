@@ -36,7 +36,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     val error = mutableError
     fun clearError() { mutableError.value = null }
     fun togglePin(id: String) { edits.trySend { app.preferences.togglePin(id) } }
-    fun movePin(id: String, delta: Int) { edits.trySend { app.preferences.movePin(id, delta) } }
+    fun reorderPins(ordered: List<String>) { edits.trySend { app.preferences.reorderPins(ordered) } }
     fun setIconShape(value: app.cascadia.launcher.core.IconShape) { edits.trySend { app.preferences.setIconShape(value) } }
     fun setAppScale(value: Float) { edits.trySend { app.preferences.setAppScale(value) } }
     fun setRailBottomMargin(value: Float) { edits.trySend { app.preferences.setRailBottomMargin(value) } }

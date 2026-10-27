@@ -3,7 +3,8 @@
 Functional emulator tests do not establish real-device frame rates or startup
 latency. Use an unlocked Pixel 8 running Android 17 with battery saver off,
 minimal background load, and a stable thermal state. Keep a copy of its pin
-order before test runs. Use a dedicated AOSP emulator for profile generation.
+order before test runs. Do not start emulators or run emulator tests unless
+explicitly requested by the user.
 
 ## Variants
 
@@ -22,24 +23,11 @@ An initial baseline profile generated on the AOSP API 36 emulator is checked in 
 `app/src/main/baseline-prof.txt`. It covers startup and alphabet navigation; update
 it as important journeys change. Its presence is not a real-device speed claim.
 
-## Generate an app-specific baseline profile
+## App-specific baseline profile
 
-On an Android 13+ AOSP emulator (or an appropriately rooted compatible device):
-
-```sh
-./gradlew :benchmark:connectedProfileAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=app.cascadia.launcher.benchmark.BaselineProfileGenerator
-```
-
-The runner reports the generated `*-baseline-prof.txt` artifact, normally under
-`benchmark/build/outputs/connected_android_test_additional_output/`. Copy that
-**text profile** to `app/src/main/baseline-prof.txt`, then rebuild release and
-benchmark. Do not copy an obfuscated profile collected from the benchmark variant.
-Review generated profiles when startup/rail flows change.
-
-Dependency baseline profiles are already merged by AGP; the generated profile
-adds Cascadia's own paths. Profile generation must be rerun after significant
-UI/architecture changes.
+Dependency baseline profiles are merged by AGP; the checked-in profile adds
+Cascadia's own paths. Profile regeneration is a separate task that requires an
+explicit user request and is not part of routine build/install validation.
 
 ## Measure startup and alphabet dragging
 
@@ -60,11 +48,6 @@ alphabet rail. It uses five iterations and partial compilation. Benchmark JSON
 and Perfetto traces appear under the benchmark module's build outputs; inspect
 the reported paths. Record device, OS/build, refresh rate, thermal state, app
 count, variant, and commit alongside the results.
-
-If investigating emulator behavior, you may explicitly suppress the benchmark
-EMULATOR warning using the runner's `androidx.benchmark.suppressErrors=EMULATOR`
-argument. Such timings are debugging evidence only and must not be reported as
-physical-device performance.
 
 ## Rail smoothness investigation
 

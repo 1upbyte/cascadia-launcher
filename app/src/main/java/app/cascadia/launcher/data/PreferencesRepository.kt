@@ -53,10 +53,10 @@ class PreferencesRepository(private val context: Context) {
         stored[pinsKey] = JSONArray(if (id in pins) pins - id else pins + id).toString()
     }
 
-    suspend fun movePin(id: String, delta: Int) = context.dataStore.edit { stored ->
+    suspend fun reorderPins(ordered: List<String>) = context.dataStore.edit { stored ->
         val array = runCatching { JSONArray(stored[pinsKey] ?: "[]") }.getOrElse { JSONArray() }
         val pins = List(array.length()) { array.getString(it) }.distinct()
-        stored[pinsKey] = JSONArray(app.cascadia.launcher.core.movePin(pins, id, delta)).toString()
+        stored[pinsKey] = JSONArray(app.cascadia.launcher.core.reorderPins(pins, ordered)).toString()
     }
 
     suspend fun setIconShape(value: IconShape) = context.dataStore.edit {
